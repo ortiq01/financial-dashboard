@@ -1,2 +1,12 @@
-# financial-dashboard
-Node.js Express app for the financial dashboard with health endpoint and PM2 support.
+# Financial Dashboard
+
+Minimal Node.js Express service with a /health endpoint.
+
+## Run
+
+```bash
+npm install
+npm start
+```
+
+PORT env var is supported (defaults to 3002).
