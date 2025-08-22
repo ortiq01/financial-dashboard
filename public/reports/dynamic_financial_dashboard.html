@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Dashboard (Dynamic Data)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background:#f6f8fb; color:#222; margin:0; padding:20px; }
+    .container { max-width: 1300px; margin: 0 auto; }
+    .header { background: linear-gradient(135deg,#2c3e50,#34495e); color:#fff; padding:24px; border-radius:16px; }
+    h1 { margin:0 0 6px; font-size: 24px; }
+    .sub { opacity:.9; }
+    .grid { display:grid; gap:16px; }
+    .summary { grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); margin:18px 0; }
+    .card { background:#fff; border-radius:14px; padding:18px; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+    .label { font-size:12px; opacity:.7; text-transform: uppercase; letter-spacing:.6px; }
+    .value { font-size:26px; font-weight:700; margin-top:6px; }
+    .pos { color:#2e7d32; }
+    .neg { color:#c62828; }
+    .neutral { color:#1565c0; }
+    .section { margin:22px 0; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px 12px; border-bottom: 1px solid #eee; text-align:left; font-size:14px; }
+    th { background:#fafbfc; font-weight:600; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f0f3f8; border:1px solid #e2e8f0; border-bottom-width:2px; border-radius:6px; padding:1px 6px; font-size:12px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:12px; border:1px solid #e5e7eb; }
+    .muted { color:#6b7280; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input[type="text"], select { border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; background:#fff; }
+    button { border:1px solid #1f6feb; background:#2f81f7; color:#fff; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    button.secondary { background:#fff; color:#1f2937; border-color:#e5e7eb; }
+    .warn { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px 12px; border-radius: 8px; }
+    .scroll { overflow:auto; max-height: 480px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Financial Dashboard <span class="pill" id="dataLabel">loading…</span></h1>
+      <div class="sub">Dynamic data-driven view. Drop a .TAB or .CSV and this page renders summaries and transactions.</div>
+    </div>
+
+    <div class="grid summary">
+      <div class="card">
+        <div class="label">Total Income</div>
+        <div class="value pos" id="totalIncome">€0,00</div>
+      </div>
+      <div class="card">
+        <div class="label">Total Expenses</div>
+        <div class="value neg" id="totalExpenses">€0,00</div>
+      </div>
+      <div class="card">
+        <div class="label">Net</div>
+        <div class="value neutral" id="netAmount">€0,00</div>
+      </div>
+      <div class="card">
+        <div class="label">Transactions</div>
+        <div class="value" id="txCount">0</div>
+      </div>
+    </div>
+
+    <div class="section card">
+      <div class="toolbar">
+        <strong>Data source:</strong>
+        <span id="sourcePath" class="kbd">/data/latest.tab</span>
+        <button id="reloadBtn" class="secondary">Reload</button>
+        <input id="customUrl" type="text" size="48" placeholder="/data/your-file.tab or full URL" />
+        <button id="loadBtn">Load URL</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Tip: You can set a query param ?data=/data/TXT250822073208.TAB</div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1.2fr .8fr; align-items:start;">
+      <div class="card section">
+        <h3 style="margin-top:0">Transactions</h3>
+        <div class="scroll">
+          <table id="txTable">
+            <thead><tr id="txHead"></tr></thead>
+            <tbody id="txBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card section">
+        <h3 style="margin-top:0">Spend by Category</h3>
+        <table>
+          <thead>
+            <tr><th>Category</th><th class="muted">Count</th><th class="muted">Amount</th></tr>
+          </thead>
+          <tbody id="catBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="notice" class="warn section" style="display:none"></div>
+  </div>
+
+  <script>
+    const euro = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
+    const qs = new URLSearchParams(location.search);
+    const defaultUrl = '/data/latest.tab';
+    const dataUrl = qs.get('data') || defaultUrl;
+
+    const el = (id) => document.getElementById(id);
+
+    function detectDelimiter(text) {
+      // Prefer TAB, else CSV
+      const firstLine = text.split(/\r?\n/)[0] || '';
+      if (firstLine.includes('\t')) return '\t';
+      if (firstLine.includes(';')) return ';';
+      return ',';
+    }
+
+    function parseTable(text) {
+      const delim = detectDelimiter(text);
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (!lines.length) return { headers: [], rows: [] };
+      const headers = lines[0].split(delim).map(h => h.trim());
+      const rows = lines.slice(1).map(l => l.split(delim).map(v => v.trim()));
+      return { headers, rows };
+    }
+
+    function mapColumns(headers) {
+      // Try to resolve standard fields across English/Dutch synonyms
+      const idx = (names) => headers.findIndex(h => names.some(n => h.toLowerCase() === n || h.toLowerCase().includes(n)));
+      return {
+        date: idx(['date','datum']),
+        account: idx(['account','rekening']),
+        description: idx(['description','omschrijving','beschrijving','description/omschrijving']),
+        category: idx(['category','categorie']),
+        amount: idx(['amount','bedrag','value'])
+      };
+    }
+
+    function toNumber(s) {
+      if (typeof s !== 'string') return Number(s) || 0;
+      // Replace locale variants and non-numeric except . and -
+      const cleaned = s.replace(/\s/g, '').replace(/€/g,'').replace(/\./g,'').replace(/,/g,'.');
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function summarize(headers, rows) {
+      const cols = mapColumns(headers);
+      let income = 0, expenses = 0;
+      const catAgg = new Map();
+      rows.forEach(r => {
+        const amt = toNumber(cols.amount >= 0 ? r[cols.amount] : 0);
+        if (amt >= 0) income += amt; else expenses += amt;
+        const cat = (cols.category >= 0 ? r[cols.category] : 'Uncategorized') || 'Uncategorized';
+        const entry = catAgg.get(cat) || { count:0, sum:0 };
+        entry.count += 1;
+        entry.sum += amt;
+        catAgg.set(cat, entry);
+      });
+      return { income, expenses, net: income + expenses, catAgg, cols };
+    }
+
+    function renderTable(headers, rows) {
+      const headEl = el('txHead');
+      const bodyEl = el('txBody');
+      headEl.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+      const maxRows = 500; // safety for huge files
+      bodyEl.innerHTML = rows.slice(0, maxRows).map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+      if (rows.length > maxRows) {
+        showNotice(`Showing first ${maxRows} rows of ${rows.length}. Filter or reduce input for full view.`);
+      }
+    }
+
+    function renderSummary(sum) {
+      el('totalIncome').textContent = euro.format(sum.income);
+      el('totalExpenses').textContent = euro.format(Math.abs(sum.expenses));
+      el('netAmount').textContent = euro.format(sum.net);
+      el('txCount').textContent = Intl.NumberFormat('nl-NL').format(sum.catAgg.size ? Array.from(sum.catAgg.values()).reduce((a,b)=>a+b.count,0) : 0);
+    }
+
+    function renderCategories(sum) {
+      const tbody = el('catBody');
+      const rows = Array.from(sum.catAgg.entries())
+        .sort((a,b) => Math.abs(b[1].sum) - Math.abs(a[1].sum))
+        .map(([cat, v]) => `<tr><td>${cat}</td><td class="muted">${v.count}</td><td class="muted">${euro.format(v.sum)}</td></tr>`)
+        .join('');
+      tbody.innerHTML = rows || '<tr><td colspan="3" class="muted">No category data</td></tr>';
+    }
+
+    function showNotice(msg) {
+      const n = el('notice');
+      n.textContent = msg;
+      n.style.display = 'block';
+    }
+
+    async function load(url) {
+      try {
+        el('dataLabel').textContent = 'loading…';
+        el('sourcePath').textContent = url;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        const { headers, rows } = parseTable(text);
+        if (!headers.length || !rows.length) throw new Error('No rows');
+        const sum = summarize(headers, rows);
+        renderSummary(sum);
+        renderTable(headers, rows);
+        renderCategories(sum);
+        el('dataLabel').textContent = 'OK';
+      } catch (e) {
+        el('dataLabel').textContent = 'error';
+        showNotice(`Failed to load data from ${url}: ${e.message}`);
+      }
+    }
+
+    // Wire UI
+    el('reloadBtn').addEventListener('click', () => load(el('sourcePath').textContent));
+    el('loadBtn').addEventListener('click', () => {
+      const u = el('customUrl').value.trim();
+      if (u) load(u);
+    });
+
+    // Initial load
+    load(dataUrl);
+  </script>
+</body>
+</html>

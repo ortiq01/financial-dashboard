@@ -1,0 +1,2 @@
+# Data folder for uploaded or refreshed datasets
+# Place your latest dataset as `latest.tab` or pass `?data=/data/<filename>.TAB`

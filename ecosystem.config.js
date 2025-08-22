@@ -4,6 +4,6 @@ module.exports = {
     script: 'npm',
     args: 'start',
     cwd: '/opt/apps/financial-dashboard',
-    env: { PORT: '3002', NODE_ENV: 'production' }
+  env: { PORT: '3002', NODE_ENV: 'production', DEFAULT_PATH: '/reports/dynamic_financial_dashboard.html' }
   }]
 }

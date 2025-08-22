@@ -16,7 +16,7 @@ app.get('/health', (req, res) => {
 });
 
 // Redirect root to a default report path (configurable)
-const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/financial_dashboard_complete.html';
+const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/dynamic_financial_dashboard.html';
 
 app.get('/', (req, res) => {
   // Use 302 to allow interim, can be set to 301 once stable
