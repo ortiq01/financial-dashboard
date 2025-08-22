@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unified Financial Dashboard</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #fff;
+      --muted: #6b7280;
+      --text: #111827;
+      --primary: #2563eb;
+      --green: #16a34a;
+      --red: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+    h1 { margin:0; font-size: 1.5rem; }
+    .pill { background:#e5f0ff; color:#1e40af; padding:4px 8px; border-radius:999px; font-size:.8rem; }
+    .row { display:flex; flex-wrap:wrap; gap:16px; }
+    .card { background:var(--card); border-radius:12px; box-shadow: 0 8px 20px rgba(0,0,0,.06); padding:16px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .kbd { background:#eef2f7; border:1px solid #e5e7eb; padding:6px 8px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .btn { background:var(--primary); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+    .btn.ghost { background:#fff; color:#111827; border:1px solid #e5e7eb; }
+    .btn.chip { border-radius:999px; padding:6px 10px; }
+    .muted { color:var(--muted); }
+    .grid-3 { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; }
+    .kpi { display:flex; flex-direction:column; gap:6px; }
+    .kpi .value { font-size:1.6rem; font-weight:700; }
+    .value.pos { color:var(--green); }
+    .value.neg { color:var(--red); }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px 8px; border-bottom:1px solid #eee; text-align:left; }
+    th { background:#f9fafb; font-weight:600; }
+    tr:hover { background:#f8fafc; }
+    .amount { font-weight:600; text-align:right; }
+    .amount.pos { color:var(--green); }
+    .amount.neg { color:var(--red); }
+    .section-title { font-size:1.1rem; margin:0 0 8px; }
+    .category-tag { display:inline-block; padding:4px 10px; border-radius:999px; font-size:.8rem; color:#fff; background:#64748b; }
+    .insight { border-left:4px solid #2563eb; padding-left:12px; margin:10px 0; }
+    @media (max-width: 720px){ .row { flex-direction:column; } }
+  </style>
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="data:," />
+  <meta name="description" content="Unified financial dashboard with totals, category breakdowns, and AI recommendations." />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <script>/* prevent FOUC */</script>
+  
+  
+  
+  
+  
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Unified Financial Dashboard <span id="dataStatus" class="pill">loading…</span></h1>
+        <div class="muted">Periode: <span id="periodLabel">-</span> • Laatst bijgewerkt: <span id="lastUpdated">-</span></div>
+      </div>
+      <div class="toolbar">
+        <span class="muted">Bron:</span>
+        <span id="sourcePath" class="kbd">/data/latest.tab</span>
+        <button id="reloadBtn" class="btn ghost">Reload</button>
+      </div>
+    </header>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="toolbar">
+        <input id="customUrl" type="text" size="40" placeholder="/data/your-file.tab of volledige URL" class="kbd" style="padding:8px 10px;" />
+        <button id="loadBtn" class="btn">Load URL</button>
+        <span class="muted">Maand:</span>
+        <select id="monthSelect" class="kbd" style="padding:8px 10px;"></select>
+        <span class="muted">Rekeningen:</span>
+        <div id="accountChips" class="toolbar" style="gap:6px"></div>
+        <button id="exportTxBtn" class="btn">📊 Export Transacties (CSV)</button>
+        <button id="exportCatBtn" class="btn">📂 Export Categorieën (CSV)</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:1; min-width:280px;">
+        <h3 class="section-title">Kerncijfers</h3>
+        <div class="grid-3">
+          <div class="kpi"><div class="muted">Totale Inkomsten</div><div id="kpiIncome" class="value pos">-</div></div>
+          <div class="kpi"><div class="muted">Totale Uitgaven</div><div id="kpiExpenses" class="value neg">-</div></div>
+          <div class="kpi"><div class="muted">Netto Resultaat</div><div id="kpiNet" class="value">-</div></div>
+        </div>
+      </div>
+      <div class="card" style="flex:1; min-width:280px;">
+        <h3 class="section-title">AI Aanbevelingen</h3>
+        <div id="insightList"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:2; min-width:380px;">
+        <h3 id="catTitleDyn" class="section-title">Uitgaven per Categorie</h3>
+        <div style="overflow:auto">
+          <table>
+            <thead><tr><th>Categorie</th><th>Aantal</th><th>Totaal</th><th>Gemiddeld</th><th>% van Uitgaven</th></tr></thead>
+            <tbody id="catBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="flex:1; min-width:320px;">
+        <h3 class="section-title">Per Rekening</h3>
+        <div style="overflow:auto">
+          <table>
+            <thead><tr><th>Rekening</th><th>In</th><th>Uit</th><th>Netto</th></tr></thead>
+            <tbody id="acctBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">Recentste Transacties</h3>
+      <div style="overflow:auto">
+        <table>
+          <thead id="txHead"></thead>
+          <tbody id="txBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Utilities and parsing
+    const euro = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
+    const qs = new URLSearchParams(location.search);
+    const defaultUrl = '/data/latest.tab';
+    const dataUrl = qs.get('data') || defaultUrl;
+    const el = (id) => document.getElementById(id);
+    let lastData = { headers: [], allRows: [], sum: null };
+
+    function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
+    function parseTable(text){ const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=lines[0].split(d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>l.split(d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } return { headers, rows }; }
+    function mapColumns(headers){ const idx=(names)=>headers.findIndex(h=>names.some(n=>h.toLowerCase()===n||h.toLowerCase().includes(n))); return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']) }; }
+    function inferColumns(headers, rows){ const colCount = headers.length || (rows[0]?rows[0].length:0); const looksDate=s=>/^\d{8}$/.test((s||'').replace(/\D/g,'')); const looksAmount=s=>{ if(!s) return false; return /[\-+]?\d+[\.,]\d{2}$/.test(s.replace(/\s/g,'')); }; const N=Math.min(rows.length,100); const scores=Array.from({length:colCount},()=>({amount:0,date:0,text:0,numeric:0})); for(let r=0;r<N;r++){const row=rows[r]||[]; for(let c=0;c<colCount;c++){ const v=row[c]||''; if(looksAmount(v)) scores[c].amount++; if(looksDate(v)) scores[c].date++; if(/^[\d\s.,-]+$/.test(v)) scores[c].numeric++; else scores[c].text++; }} let amount=0, amountScore=-1; for(let c=0;c<colCount;c++){ if(scores[c].amount>amountScore && scores[c].date===0){ amountScore=scores[c].amount; amount=c; } } let date=-1, dateScore=-1; for(let c=0;c<colCount;c++){ if(scores[c].date>dateScore){ dateScore=scores[c].date; date=c; } } let account=-1; for(let c=0;c<colCount;c++){ if(c!==date && c!==amount){ account=c; break; } } const description=Math.max(0,colCount-1); return { date, account, description, category:-1, amount } }
+    function toNumber(s){ if(typeof s!=='string') return Number(s)||0; const cleaned=s.replace(/\s/g,'').replace(/€/g,'').replace(/\./g,'').replace(/,/g,'.'); const n=Number(cleaned); return Number.isFinite(n)?n:0; }
+    function monthKey(v){ const s=(v||'').toString(); if(/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`; const d=new Date(s); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; return 'unknown'; }
+
+    function summarize(headers, rows){
+      let cols = mapColumns(headers);
+      const noCols = [cols.date, cols.account, cols.description, cols.category, cols.amount].every(v=>v===-1);
+      if (noCols || cols.amount===-1) cols = inferColumns(headers, rows);
+      const monthCounts = new Map();
+      rows.forEach(r=>{ const mk = cols.date>=0 ? monthKey(r[cols.date]) : 'unknown'; monthCounts.set(mk, (monthCounts.get(mk)||0)+1); });
+      const months = Array.from(monthCounts.keys()).filter(m=>m!=='unknown').sort();
+      let selected = el('monthSelect').value || months[months.length-1] || 'all';
+      if (!el('monthSelect').value){
+        if (months.length===0){ el('monthSelect').innerHTML='<option value="all">All</option>'; el('monthSelect').value='all'; selected='all'; }
+        else { el('monthSelect').innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join(''); el('monthSelect').value = selected; }
+      }
+      const accounts = cols.account>=0 ? Array.from(new Set(rows.map(r=>r[cols.account]).filter(Boolean))) : [];
+      if (accounts.length) renderAccountChips(accounts);
+      const activeAccounts = getActiveAccounts(accounts);
+      const filtered = rows.filter(r=>{ const okMonth=(selected==='all'||selected==='unknown'||cols.date<0)?true:(monthKey(r[cols.date])===selected); const okAcc = (!accounts.length || activeAccounts.has(r[cols.account])); return okMonth && okAcc; });
+      let income=0, expenses=0; const catAgg=new Map();
+      filtered.forEach(r=>{ const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(amt>=0) income+=amt; else expenses+=amt; const cat=(cols.category>=0?r[cols.category]:'Uncategorized')||'Uncategorized'; const v=catAgg.get(cat)||{count:0,sum:0}; v.count++; v.sum+=amt; catAgg.set(cat,v); });
+      return { income, expenses, net: income+expenses, catAgg, cols, filtered, accounts, months, selected };
+    }
+
+    function renderAccountChips(accounts){ const wrap=el('accountChips'); if(!wrap) return; if(!renderAccountChips._state){ renderAccountChips._state=new Set(accounts); } else { accounts.forEach(a=>renderAccountChips._state.add(a)); } wrap.innerHTML=''; accounts.forEach(acc=>{ const btn=document.createElement('button'); const active=renderAccountChips._state.has(acc); btn.className='btn chip ' + (active?'':'ghost'); btn.textContent=acc; btn.addEventListener('click',()=>{ if(renderAccountChips._state.has(acc)){ renderAccountChips._state.delete(acc); btn.className='btn chip ghost'; } else { renderAccountChips._state.add(acc); btn.className='btn chip'; } load(el('sourcePath').textContent); }); wrap.appendChild(btn); }); }
+    function getActiveAccounts(all){ if(!renderAccountChips._state) return new Set(all); if(renderAccountChips._state.size===0) return new Set(all); return new Set(Array.from(renderAccountChips._state)); }
+
+    function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
+    function computeHistoryByMonth(allRows, cols, months){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0, cats:new Map()})); allRows.forEach(r=>{ const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; const cat=(cols.category>=0?r[cols.category]:'Uncategorized')||'Uncategorized'; bucket.cats.set(cat,(bucket.cats.get(cat)||0)+amt); }); return by; }
+
+    function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
+    function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
+    function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; return; } const totalNeg=entries.reduce((a,[,v])=>a+(v.sum<0?Math.abs(v.sum):0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum)).map(([cat,v])=>{ const count=v.count||0; const avg=count>0?Math.abs(v.sum)/count:0; const pct=v.sum<0?(Math.abs(v.sum)/denom)*100:0; return `<tr><td><span class="category-tag">${cat}</span></td><td>${count}</td><td class="amount ${v.sum>=0?'pos':'neg'}">${euro.format(v.sum)}</td><td class="amount">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; }
+    function renderAccounts(perAccount){ const tbody=el('acctBody'); const rows=perAccount.map(a=>`<tr><td>${a.account}</td><td class="amount pos">${euro.format(a.income)}</td><td class="amount neg">${euro.format(Math.abs(a.expenses))}</td><td class="amount ${a.net>=0?'pos':'neg'}">${(a.net>=0?'+':'')+euro.format(a.net)}</td></tr>`).join(''); tbody.innerHTML=rows||'<tr><td colspan="4">Geen data</td></tr>'; }
+    function renderTransactions(headers, rows, cols){ const showIdx=[cols.date, cols.description, cols.category, cols.amount].filter(i=>i>=0); const displayHeaders=(function(){ const colCount=rows[0]?.length || headers.length || 0; let d=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<d.length) d[cols.date]='Datum'; if (cols.description>=0 && cols.description<d.length) d[cols.description]='Beschrijving'; if (cols.category>=0 && cols.category<d.length) d[cols.category]='Categorie'; if (cols.amount>=0 && cols.amount<d.length) d[cols.amount]='Bedrag'; if (cols.account>=0 && cols.account<d.length) d[cols.account]='Rekening'; return d; })(); el('txHead').innerHTML = `<tr>${showIdx.map(i=>`<th>${displayHeaders[i]||'Col'}</th>`).join('')}</tr>`; const max=50; const bodyRows = rows.slice(-max).reverse().map(r=>{ const tds=showIdx.map(i=>{ if(i===cols.amount){ const val=toNumber(r[i]); return `<td class="amount ${val>=0?'pos':'neg'}">${euro.format(val)}</td>`; } return `<td>${r[i]||''}</td>`; }).join(''); return `<tr>${tds}</tr>`; }).join(''); el('txBody').innerHTML = bodyRows || '<tr><td colspan="4">Geen transacties</td></tr>'; }
+
+    function buildDisplayHeaders(headers, cols){ const colCount=lastData.sum?.filtered?.[0]?.length || headers.length || 0; let display=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<display.length) display[cols.date]='Date'; if (cols.account>=0 && cols.account<display.length) display[cols.account]='Account'; if (cols.description>=0 && cols.description<display.length) display[cols.description]='Description'; if (cols.category>=0 && cols.category<display.length) display[cols.category]='Category'; if (cols.amount>=0 && cols.amount<display.length) display[cols.amount]='Amount'; return display; }
+    function toCSV(rows){ return rows.map(r=>r.map(v=>{ const s=(v??'').toString(); if(/[",\n;\t]/.test(s)) return '"'+s.replace(/"/g,'""')+'"'; return s; }).join(',')).join('\n'); }
+    function downloadCSV(csvText, filename){ const blob=new Blob([csvText],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); }
+    function exportTransactionsCSV(){ if(!lastData.sum) return; const { headers, sum } = lastData; const cols=sum.cols; const rows=sum.filtered?.length?sum.filtered:lastData.allRows; const headerRow=buildDisplayHeaders(headers, cols); const addMonth=cols && cols.date>=0; const out=[]; out.push(addMonth?[...headerRow,'Month']:headerRow); for(const r of rows){ const m=addMonth?monthKey(r[cols.date]):undefined; out.push(addMonth?[...r,m]:r); } const csv=toCSV(out); const month=sum.selected||'all'; downloadCSV(csv, `transactions_${month}.csv`); }
+    function exportCategoriesCSV(){ if(!lastData.sum) return; const entries=Array.from(lastData.sum.catAgg.entries()).sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum)); const out=[["Category","Count","Amount"]]; for(const [cat,v] of entries) out.push([cat, String(v.count), v.sum.toFixed(2)]); const csv=toCSV(out); const month=lastData.sum.selected||'all'; downloadCSV(csv, `categories_${month}.csv`); }
+
+    function generateInsights(sum, perAccount, historyByMonth){
+      const insights=[];
+      // Savings rate
+      const income = sum.income; const spend = Math.abs(sum.expenses); const savings = sum.net;
+      if (income > 0){ const rate = (savings / income) * 100; if (rate < 10) insights.push({title:'Verhoog je spaarpercentage', text:`Je spaarpercentage is ${rate.toFixed(1)}%. Mik op 10–20% door vaste lasten te optimaliseren en variabele uitgaven te beperken.`}); else insights.push({title:'Mooi spaarpercentage', text:`Je spaart ${rate.toFixed(1)}% van je inkomen. Houd dit niveau vast.`}); }
+      // Top category spend
+      const topCat = Array.from(sum.catAgg.entries()).filter(([,v])=>v.sum<0).sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum))[0];
+      if (topCat){ const [cat,v]=topCat; insights.push({title:`Grootste uitgavencategorie: ${cat}` , text:`Overweeg een budgetplafond. Gemiddeld per transactie: ${euro.format(Math.abs(v.sum)/(v.count||1))}.`}); }
+      // Account at risk
+      const worstAcc = perAccount.slice().sort((a,b)=>a.net-b.net)[0];
+      if (worstAcc && worstAcc.net < 0){ insights.push({title:`Account in het rood: ${worstAcc.account}`, text:`Netto deze maand: ${(worstAcc.net>=0?'+':'')+euro.format(worstAcc.net)}. Overweeg interne overboeking of uitgavenbeperking.`}); }
+      // Month-over-month change (if history available)
+      const months = Array.from(historyByMonth.keys()).sort(); const idx = months.indexOf(sum.selected);
+      if (idx > 0){ const curr=historyByMonth.get(months[idx]); const prev=historyByMonth.get(months[idx-1]); if (curr && prev){ const delta = (curr.net - prev.net); const trend = delta>=0 ? 'verbeterd' : 'verslechterd'; insights.push({title:'Maand-op-maand', text:`Netto resultaat is ${trend} met ${delta>=0?'+':''}${euro.format(delta)} t.o.v. vorige maand.`}); } }
+      // Fixed costs heuristic: if categories contain common fixed labels
+      const fixedKeys=['huur','hypotheek','verzekering','energy','stroom','gas','water','telecom','internet'];
+      const fixedSpend = Array.from(sum.catAgg.entries()).filter(([k,v])=> v.sum<0 && fixedKeys.some(key=> (k||'').toLowerCase().includes(key))).reduce((a,[,v])=>a+Math.abs(v.sum),0);
+      if (fixedSpend>0){ insights.push({title:'Optimaliseer vaste lasten', text:`Je vaste lasten zijn circa ${euro.format(fixedSpend)}. Kijk naar energiecontracten en verzekeringen voor mogelijke besparingen.`}); }
+      return insights;
+    }
+
+    async function load(url){
+      try{
+        el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
+        const bust = (url.includes('?')?'&':'?') + '_ts=' + Date.now();
+        const res = await fetch(url + bust, { cache:'no-store' });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const text = await res.text();
+        const { headers, rows } = parseTable(text);
+        if(!rows.length) throw new Error('No rows');
+        const sum = summarize(headers, rows);
+        lastData = { headers, allRows: rows, sum };
+        const perAccount = computePerAccount(sum);
+        const history = computeHistoryByMonth(rows, sum.cols, sum.months);
+
+        updateHeader(sum);
+        renderKPIs(sum);
+        renderCategories(sum);
+        renderAccounts(perAccount);
+        renderTransactions(headers, sum.filtered, sum.cols);
+        const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join('');
+        el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>';
+
+        el('dataStatus').textContent='OK';
+      } catch(e){
+        el('dataStatus').textContent='error';
+        alert('Kon data niet laden: ' + e.message);
+      }
+    }
+
+    // Wire
+    document.addEventListener('DOMContentLoaded', function(){
+      load(dataUrl);
+      el('reloadBtn').addEventListener('click', ()=>load(el('sourcePath').textContent));
+      el('loadBtn').addEventListener('click', ()=>{ const u=el('customUrl').value.trim(); if(u) load(u); });
+      el('monthSelect').addEventListener('change', ()=>load(el('sourcePath').textContent));
+      el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
+      el('exportCatBtn').addEventListener('click', exportCategoriesCSV);
+    });
+  </script>
+</body>
+</html>
