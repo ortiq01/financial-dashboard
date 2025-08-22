@@ -15,8 +15,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'financial-dashboard', ts: new Date().toISOString() });
 });
 
+// Redirect root to a default report path (configurable)
+const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/financial_dashboard_complete.html';
+
 app.get('/', (req, res) => {
-  res.send('Financial Dashboard API');
+  // Use 302 to allow interim, can be set to 301 once stable
+  res.redirect(DEFAULT_PATH);
+});
+
+// Optional lightweight status page
+app.get('/status', (req, res) => {
+  res.type('text/plain').send('financial-dashboard: ok');
 });
 
 app.listen(port, () => {
