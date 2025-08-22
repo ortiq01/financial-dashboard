@@ -109,6 +109,7 @@
         <select id="monthSelect" class="kbd" style="padding:8px 10px;"></select>
         <span class="muted">Rekeningen:</span>
         <div id="accountChips" class="toolbar" style="gap:6px"></div>
+        <label class="kbd" style="display:inline-flex; align-items:center; gap:6px; padding:6px 8px;"><input type="checkbox" id="excludeTransfers" /> Transfers uitsluiten</label>
         <button id="exportTxBtn" class="btn">📊 Export Transacties (CSV)</button>
         <button id="exportCatBtn" class="btn">📂 Export Categorieën (CSV)</button>
   <button id="rulesBtn" class="btn ghost">⚙️ Beheer regels</button>
@@ -247,7 +248,7 @@
 
     function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
     function parseTable(text){ const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=lines[0].split(d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>l.split(d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } return { headers, rows }; }
-    function mapColumns(headers){ const idx=(names)=>headers.findIndex(h=>names.some(n=>h.toLowerCase()===n||h.toLowerCase().includes(n))); return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']) }; }
+  function mapColumns(headers){ const idx=(names)=>headers.findIndex(h=>names.some(n=>h.toLowerCase()===n||h.toLowerCase().includes(n))); return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']), mcc: idx(['mcc','merchant category code']), remittance: idx(['remittance information','remi','omschrijving2','additional information','overschrijving','sepa']), counterparty: idx(['naam tegenpartij','counterparty','name','naam']) }; }
     function inferColumns(headers, rows){
       const colCount = headers.length || (rows[0]?rows[0].length:0);
       const looksDate=s=>/^\d{8}$/.test((s||'').replace(/\D/g,''));
@@ -298,7 +299,10 @@
     function monthKey(v){ const s=(v||'').toString(); if(/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`; const d=new Date(s); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; return 'unknown'; }
 
     // --- CBS categorization rules ---
-    function normalize(s){ return (s||'').toString().toLowerCase(); }
+    function normalize(s){
+      const t = (s||'').toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'');
+      return t.replace(/\s+/g,' ').trim();
+    }
     // --- Local overrides (persisted in localStorage) ---
     const OV_KEY = 'cbsCategoryOverrides';
     function getOverrides(){ try{ const raw=localStorage.getItem(OV_KEY); if(!raw) return {byKey:{}, byKeyword:[]}; const o=JSON.parse(raw); return { byKey: o.byKey||{}, byKeyword: Array.isArray(o.byKeyword)?o.byKeyword:[] }; }catch{ return {byKey:{}, byKeyword:[]}; } }
@@ -307,25 +311,50 @@
     function applyOverrides(row, cols, desc){ const ov=getOverrides(); const key=txnKey(row, cols); if(ov.byKey[key]) return { main: ov.byKey[key].main, sub: ov.byKey[key].sub };
       if(desc){ for(const rule of ov.byKeyword){ if(desc.includes(rule.keyword)) return { main: rule.main, sub: rule.sub }; } }
       return null; }
+    // Minimal MCC to main/sub mapping (extendable)
+    const mccMap = {
+      // Supermarkets
+      '5411': { main:'Voedsel & Dranken', sub:'Boodschappen - Supermarkt' },
+      // Restaurants
+      '5812': { main:'Voedsel & Dranken', sub:'Restaurants & Cafés' }, '5814': { main:'Voedsel & Dranken', sub:'Restaurants & Cafés' },
+      // Fuel
+      '5541': { main:'Vervoer', sub:'Auto - Brandstof' }, '5542': { main:'Vervoer', sub:'Auto - Brandstof' },
+      // Utilities (broad)
+      '4900': { main:'Wonen', sub:'Nutsvoorzieningen - Gas & Licht' },
+      // Streaming/software subscriptions (catch-all)
+      '4899': { main:'Ontspanning & Cultuur', sub:'Streaming' }
+    };
+
+    function parseSEPA(row, cols){
+      const raw = [cols.remittance>=0 ? row[cols.remittance] : '', cols.description>=0 ? row[cols.description] : ''].filter(Boolean).join(' | ');
+      const s = normalize(raw);
+      return { text: s };
+    }
+
     const cbsRules = [
+      // 0. Transfers & interne overboekingen (detect first)
+      { main:'Overboekingen & Transfers', sub:'P2P / Betaalverzoek', any:["tikkie","betaalverzoek","bunq.me","revolut","splitwise"] },
+      { main:'Overboekingen & Transfers', sub:'Creditcard betaling', any:["ics","international card services","visa","mastercard","amex","american express","creditcard","credit card"] },
+      { main:'Overboekingen & Transfers', sub:'Interne overboeking', any:["eigen rekening","interne overboeking","interne overb","tussenrekening","spaarrekening"] },
       // 1. Wonen (Housing)
-      { main:'Wonen', sub:'Huur/Hypotheek', any:["hypotheek","rente","huur","woningcorporatie"] },
-      { main:'Wonen', sub:'Nutsvoorzieningen - Gas & Licht', any:["engie","vattenfall","essent","greenchoice","budget energie","energie"] },
-      { main:'Wonen', sub:'Nutsvoorzieningen - Water', any:["waternet","waterleiding","waterbedrijf"] },
-      { main:'Wonen', sub:'Nutsvoorzieningen - Internet/TV', any:["kpn","ziggo","xs4all","t-mobile","odido","internet","tv","televisie"] },
+      { main:'Wonen', sub:'Huur/Hypotheek', any:["hypotheek","rente","huur","woningcorporatie","vve","vereniging van eigenaars"] },
+      { main:'Wonen', sub:'Nutsvoorzieningen - Gas & Licht', any:["engie","vattenfall","essent","greenchoice","budget energie","energie","eneco","oxxio","vandebron","pure energie"] },
+      { main:'Wonen', sub:'Nutsvoorzieningen - Water', any:["waternet","vitens","pwn","dunea","brabant water","evides","wml","waterbedrijf"] },
+      { main:'Wonen', sub:'Nutsvoorzieningen - Internet/TV', any:["kpn","ziggo","xs4all","t-mobile","odido","tele2","youfone","delta","caiway","freedom internet","internet","tv","televisie"] },
       // Place Auto insurance/tax before generic insurance to avoid misclass
-      { main:'Vervoer', sub:'Auto - Verzekering/Belasting', any:["wegenbelasting","apk","autoverzekering","auto verzekering","rdw"] },
-      { main:'Wonen', sub:'Onderhoud & Verzekeringen', any:["woonverzekering","inboedel","opstal","verzekering","onderhoud","reparatie","schilder","klussenbedrijf"] },
+      { main:'Vervoer', sub:'Auto - Verzekering/Belasting', any:["wegenbelasting","motorrijtuigenbelasting","apk","autoverzekering","auto verzekering","rdw"] },
+      { main:'Wonen', sub:'Onderhoud & Verzekeringen', any:["woonverzekering","inboedel","opstal","verzekering","onderhoud","reparatie","schilder","klussenbedrijf","interpolis","unive","fbto","ohra","asr","nn ","aegon","allianz"] },
 
       // 2. Voedsel & Dranken
-      { main:'Voedsel & Dranken', sub:'Boodschappen - Supermarkt', any:["albert heijn","ah ","jumbo","lidl","aldi","plus ","coop","spar","dirk","vomar","picnic"] },
-      { main:'Voedsel & Dranken', sub:'Boodschappen - Speciaal', any:["hema","action","markt","bakker","slager"] },
-      { main:'Voedsel & Dranken', sub:'Restaurants & Cafés', any:["restaurant","café","bar","eetcafé","delivery","takeaway","thuisbezorgd","uber eats","deliveroo"] },
+  { main:'Voedsel & Dranken', sub:'Boodschappen - Supermarkt', any:["albert heijn","ah ","jumbo","lidl","aldi","plus ","coop","spar","dirk","vomar","picnic","hoogvliet","deka","dekamarkt","jan linders","poiesz","boni","nettorama"] },
+  { main:'Voedsel & Dranken', sub:'Boodschappen - Speciaal', any:["hema","gall & gall","slijter","markt","bakker","slager","kaasboer"] },
+  { main:'Voedsel & Dranken', sub:'Huis & Drogist', any:["kruidvat","etos","trekpleister"] },
+  { main:'Voedsel & Dranken', sub:'Restaurants & Cafés', any:["restaurant","cafe","bar","eetcafe","mcdonald","burger king","kfc","dominos","new york pizza","subway","la place","starbucks","delivery","takeaway","thuisbezorgd","uber eats","deliveroo","hellofresh"] },
 
       // 3. Vervoer
-      { main:'Vervoer', sub:'Openbaar Vervoer', any:[" ns ","gvb","ret","htm","connexxion","arriva","ov-chip","ov chip"] },
-      { main:'Vervoer', sub:'Auto - Brandstof', any:["shell"," bp ","esso","total","texaco","tango","avia"] },
-      { main:'Vervoer', sub:'Auto - Parkeren', any:["parkeren","parking","q-park","apcoa"] },
+  { main:'Vervoer', sub:'Openbaar Vervoer', any:[" ns ","ns international","translink","gvb","ret","htm","connexxion","arriva","qbuzz","ov-chip","ov chip"] },
+  { main:'Vervoer', sub:'Auto - Brandstof', any:["shell"," bp ","esso","total","texaco","tango","avia","tamoil","argos","firezone"] },
+  { main:'Vervoer', sub:'Auto - Parkeren', any:["parkeren","parking","q-park","apcoa","parkmobile","parknow","easypark","yellowbrick"] },
       { main:'Vervoer', sub:'Auto - Deelauto', any:["greenwheels","car2go","share'n go","sharengo"] },
       { main:'Vervoer', sub:'Fiets', any:["fiets","bicycle","bike","reparatie","onderdelen"] },
 
@@ -333,7 +362,7 @@
       { main:'Kleding & Schoenen', sub:'Kleding & Schoenen', any:["h&m","zara","c&a","wehkamp","zalando","bijenkorf","v&d","primark","kleding","schoenen","mode","fashion"] },
 
       // 5. Gezondheid & Zorg
-      { main:'Gezondheid & Zorg', sub:'Zorgverzekering', any:["zilveren kruis","cz "," vgz ","menzis","zorg en zekerheid","zorgverzekering"] },
+  { main:'Gezondheid & Zorg', sub:'Zorgverzekering', any:["zilveren kruis","cz "," vgz ","menzis","zorg en zekerheid","unive","fbto","ohra","ditzo","nn ","a.s.r","zorgverzekering"] },
       { main:'Gezondheid & Zorg', sub:'Medische Kosten', any:["apotheek","huisarts","tandarts","fysio","fysiotherapeut","specialist","ziekenhuis","medicijnen","behandeling","consult"] },
 
       // 6. Onderwijs & Kinderen
@@ -345,18 +374,26 @@
       { main:'Ontspanning & Cultuur', sub:'Entertainment', any:["bioscoop","theater","concert","festival","museum"] },
       { main:'Ontspanning & Cultuur', sub:'Sport & Fitness', any:["sportschool","fitness","zwembad","tennis","voetbal"] },
       { main:'Ontspanning & Cultuur', sub:'Vakantie', any:["booking","airbnb","vakantie","hotel","reis","travel"] },
-      { main:'Ontspanning & Cultuur', sub:'Streaming', any:["netflix","spotify","disney+","videoland","amazon prime","prime video"] },
+  { main:'Ontspanning & Cultuur', sub:'Streaming', any:["netflix","spotify","disney+","videoland","amazon prime","prime video","youtube premium","apple tv+","npo start"] },
+  { main:'Ontspanning & Cultuur', sub:'Software & Abonnementen', any:["microsoft 365","office 365","adobe","icloud","google","playstation","xbox","steam","nintendo","epic games"] },
 
       // 8. Communicatie
       { main:'Communicatie', sub:'Telefoon', any:["telefoon","mobile","mobiel","belbundel","abonnement","kpn","vodafone","t-mobile","odido"] },
 
       // 9. Overige Goederen & Diensten
-      { main:'Overige Goederen & Diensten', sub:'Persoonlijke Verzorging', any:["kapper","schoonheidssalon","drogist","etos","kruidvat","cosmetica"] },
-      { main:'Overige Goederen & Diensten', sub:'Huishoudelijke Artikelen', any:["ikea","blokker","xenos","sostrene grene","sostrene","flying tiger","gamma","karwei","praxis"] },
-      { main:'Overige Goederen & Diensten', sub:'Financiële Diensten', any:["bankkosten","advieskosten","belegging","broker","transaction fee","servicefee","service fee"] },
+  { main:'Overige Goederen & Diensten', sub:'Persoonlijke Verzorging', any:["kapper","schoonheidssalon","drogist","cosmetica"] },
+  { main:'Overige Goederen & Diensten', sub:'Huishoudelijke Artikelen', any:["ikea","blokker","xenos","sostrene grene","sostrene","flying tiger","gamma","karwei","praxis","hema","bol.com","coolblue"] },
+  { main:'Overige Goederen & Diensten', sub:'Financiële Diensten', any:["bankkosten","advieskosten","belegging","broker","degiro","saxo","binck","peaks","meesman","brand new day","transaction fee","servicefee","service fee","paypal"] },
+  { main:'Overheid & Belastingen', sub:'Belastingen & Heffingen', any:["belastingdienst","toeslagen","omzetbelasting","btw","cjib","boete","leges","gemeente"] },
+  { main:'Inkomen', sub:'Salaris & Uitkering', any:["salaris","loon","payroll","uwv","uitkering","pensioen"] },
+  { main:'Onderwijs & Kinderen', sub:'DUO/Studie', any:["duo","studiefinanciering","ov-studentenkaart"] },
     ];
     function categorizeCBS(row, cols){
       const desc = normalize(cols.description>=0 ? row[cols.description] : '');
+      // prefer MCC when present
+      if (cols.mcc>=0){ const code = String(row[cols.mcc]||'').trim(); if (mccMap[code]) return mccMap[code]; }
+      // parse SEPA descriptor if available (hook for later)
+      const _sepa = parseSEPA(row, cols);
       // overrides first
       const ovr = applyOverrides(row, cols, desc);
       if (ovr) return ovr;
@@ -381,7 +418,7 @@
       'Overige Goederen & Diensten': [5, 10],
     };
 
-    function summarize(headers, rows){
+  function summarize(headers, rows){
       let cols = mapColumns(headers);
       const noCols = [cols.date, cols.account, cols.description, cols.category, cols.amount].every(v=>v===-1);
       if (noCols || cols.amount===-1) cols = inferColumns(headers, rows);
@@ -400,7 +437,16 @@
       const accounts = cols.account>=0 ? Array.from(new Set(rows.map(r=>r[cols.account]).filter(Boolean))) : [];
       if (accounts.length) renderAccountChips(accounts);
       const activeAccounts = getActiveAccounts(accounts);
-      const filtered = rows.filter(r=>{ const okMonth=(selected==='all'||selected==='unknown'||cols.date<0)?true:(monthKey(r[cols.date])===selected); const okAcc = (!accounts.length || activeAccounts.has(r[cols.account])); return okMonth && okAcc; });
+      // transfers toggle
+      const excludeTransfers = (localStorage.getItem('excludeTransfers') === '1');
+      const filtered = rows.filter(r=>{
+        const okMonth=(selected==='all'||selected==='unknown'||cols.date<0)?true:(monthKey(r[cols.date])===selected);
+        const okAcc = (!accounts.length || activeAccounts.has(r[cols.account]));
+        if (!(okMonth && okAcc)) return false;
+        if (!excludeTransfers) return true;
+        const cbs = categorizeCBS(r, cols);
+        return cbs.main !== 'Overboekingen & Transfers';
+      });
       let income=0, expenses=0; const catAgg=new Map();
       filtered.forEach(r=>{
         const amt=toNumber(cols.amount>=0?r[cols.amount]:0);
@@ -421,7 +467,7 @@
     function getActiveAccounts(all){ if(!renderAccountChips._state) return new Set(all); if(renderAccountChips._state.size===0) return new Set(all); return new Set(Array.from(renderAccountChips._state)); }
 
   function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
-  function computeHistoryByMonth(allRows, cols, months, activeAccounts){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0})); allRows.forEach(r=>{ if(activeAccounts && cols.account>=0 && activeAccounts.size>0){ const acc=r[cols.account]; if(!activeAccounts.has(acc)) return; } const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; }); return by; }
+  function computeHistoryByMonth(allRows, cols, months, activeAccounts){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0})); const excludeTransfers = (localStorage.getItem('excludeTransfers') === '1'); allRows.forEach(r=>{ if(activeAccounts && cols.account>=0 && activeAccounts.size>0){ const acc=r[cols.account]; if(!activeAccounts.has(acc)) return; } if (excludeTransfers){ const cbs=categorizeCBS(r, cols); if (cbs.main==='Overboekingen & Transfers') return; } const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; }); return by; }
 
   function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="5">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
 
@@ -431,8 +477,10 @@
     function renderAccounts(perAccount){ const tbody=el('acctBody'); const rows=perAccount.map(a=>`<tr><td>${a.account}</td><td class="amount pos">${euro.format(a.income)}</td><td class="amount neg">${euro.format(Math.abs(a.expenses))}</td><td class="amount ${a.net>=0?'pos':'neg'}">${(a.net>=0?'+':'')+euro.format(a.net)}</td></tr>`).join(''); tbody.innerHTML=rows||'<tr><td colspan="4">Geen data</td></tr>'; }
     function renderTransactions(headers, rows, cols){
       // Apply category filter if active
-      let txRows = rows;
+  let txRows = rows;
       if (selectedCategory){ txRows = rows.filter(r=>{ const c=categorizeCBS(r, cols); return c.main===selectedCategory; }); }
+  const excludeTransfers = (localStorage.getItem('excludeTransfers') === '1');
+  if (excludeTransfers){ txRows = txRows.filter(r=>{ const c=categorizeCBS(r, cols); return c.main !== 'Overboekingen & Transfers'; }); }
       const showIdx=[cols.date, cols.description, cols.category, cols.amount].filter(i=>i>=0);
       const displayHeaders=(function(){ const colCount=rows[0]?.length || headers.length || 0; let d=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<d.length) d[cols.date]='Datum'; if (cols.description>=0 && cols.description<d.length) d[cols.description]='Beschrijving'; if (cols.category>=0 && cols.category<d.length) d[cols.category]='Categorie (Bron)'; if (cols.amount>=0 && cols.amount<d.length) d[cols.amount]='Bedrag'; if (cols.account>=0 && cols.account<d.length) d[cols.account]='Rekening'; return d; })();
       // Add CBS columns
@@ -592,6 +640,9 @@
       el('monthSelect').addEventListener('change', ()=>load(el('sourcePath').textContent));
       el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
       el('exportCatBtn').addEventListener('click', exportCategoriesCSV);
+  // init exclude transfers toggle
+  const ex = document.getElementById('excludeTransfers');
+  if (ex){ ex.checked = localStorage.getItem('excludeTransfers') === '1'; ex.addEventListener('change', ()=>{ localStorage.setItem('excludeTransfers', ex.checked ? '1' : '0'); recomputeAndRender(); }); }
       // modal buttons
       el('editCancel').addEventListener('click', closeEditModal);
       el('editSave').addEventListener('click', persistEdit);
