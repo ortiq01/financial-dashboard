@@ -155,7 +155,7 @@
     <h3 class="section-title">Maandelijkse Samenvatting</h3>
       <div style="overflow:auto">
         <table>
-      <thead><tr><th>Maand</th><th>Inkomsten</th><th>Uitgaven</th><th>Netto</th><th>Δ Netto (vs vorige maand)</th></tr></thead>
+      <thead><tr><th>Maand</th><th>Inkomsten</th><th>Uitgaven & Netto</th><th>Δ Netto (vs vorige maand)</th></tr></thead>
           <tbody id="monthBody"></tbody>
         </table>
       </div>
@@ -345,7 +345,7 @@
       { main:'Overboekingen & Transfers', sub:'Creditcard betaling', any:["ics","international card services","visa","mastercard","amex","american express","creditcard","credit card"] },
       { main:'Overboekingen & Transfers', sub:'Interne overboeking', any:["eigen rekening","interne overboeking","interne overb","tussenrekening","spaarrekening"] },
       // 1. Wonen (Housing)
-      { main:'Wonen', sub:'Huur/Hypotheek', any:["hypotheek","rente","huur","woningcorporatie","vve","vereniging van eigenaars"] },
+  { main:'Wonen', sub:'Huur/Hypotheek', any:["hypotheek","rente","huur","woningcorporatie","vve","vereniging van eigenaars"], dir:'out' },
       { main:'Wonen', sub:'Nutsvoorzieningen - Gas & Licht', any:["engie","vattenfall","essent","greenchoice","budget energie","energie","eneco","oxxio","vandebron","pure energie"] },
       { main:'Wonen', sub:'Nutsvoorzieningen - Water', any:["waternet","vitens","pwn","dunea","brabant water","evides","wml","waterbedrijf"] },
       { main:'Wonen', sub:'Nutsvoorzieningen - Internet/TV', any:["kpn","ziggo","xs4all","t-mobile","odido","tele2","youfone","delta","caiway","freedom internet","internet","tv","televisie"] },
@@ -399,6 +399,7 @@
   { main:'Inkomen', sub:'Rente & Dividend', any:["rente","dividend","coupon","rentebijschrijving","spaarrente","rentevergoeding"], dir:'in' },
   { main:'Inkomen', sub:'Belasting Teruggave', any:["belastingdienst","teruggave","aangifte","inkomstenbelasting","btw-teruggave","toeslagen"], dir:'in' },
   { main:'Inkomen', sub:'Huishoudbijdrage', any:["huishouding","maandbijdrage","maand bijdrage"], dir:'in' },
+  { main:'Inkomen', sub:'Huurinkomsten', any:["huur"], dir:'in' },
   // Government and taxes (expenses only)
   { main:'Overheid & Belastingen', sub:'Belastingen & Heffingen', any:["belastingdienst","toeslagen","omzetbelasting","btw","cjib","boete","leges","gemeente"], dir:'out' },
   // Generic income catch-all (kept for backwards compatibility)
@@ -506,7 +507,7 @@
   function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
   function computeHistoryByMonth(allRows, cols, months, activeAccounts){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0})); const excludeTransfers = (localStorage.getItem('excludeTransfers') === '1'); allRows.forEach(r=>{ if(activeAccounts && cols.account>=0 && activeAccounts.size>0){ const acc=r[cols.account]; if(!activeAccounts.has(acc)) return; } if (excludeTransfers){ const cbs=categorizeCBS(r, cols); if (cbs.main==='Overboekingen & Transfers') return; } const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; }); return by; }
 
-  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="5">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
+  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="4">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; const combo = `<div>${euro.format(Math.abs(v.expenses))} uit</div><div class="${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)} netto</div>`; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount">${combo}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
 
     function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
