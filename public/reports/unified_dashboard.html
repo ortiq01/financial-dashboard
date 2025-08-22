@@ -43,6 +43,8 @@
     .section-title { font-size:1.1rem; margin:0 0 8px; }
     .category-tag { display:inline-block; padding:4px 10px; border-radius:999px; font-size:.8rem; color:#fff; background:#64748b; }
     .insight { border-left:4px solid #2563eb; padding-left:12px; margin:10px 0; }
+  .row-click { cursor:pointer; }
+  .row-active { background:#eef2ff; }
     @media (max-width: 720px){ .row { flex-direction:column; } }
   </style>
   <meta name="robots" content="noindex" />
@@ -124,6 +126,16 @@
     </div>
 
     <div class="card">
+      <h3 class="section-title">Maandelijkse Samenvatting</h3>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>Maand</th><th>Inkomsten</th><th>Uitgaven</th><th>Netto</th></tr></thead>
+          <tbody id="monthBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
     <h3 class="section-title">Recentste Transacties</h3>
       <div style="overflow:auto">
         <table>
@@ -146,7 +158,52 @@
     function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
     function parseTable(text){ const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=lines[0].split(d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>l.split(d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } return { headers, rows }; }
     function mapColumns(headers){ const idx=(names)=>headers.findIndex(h=>names.some(n=>h.toLowerCase()===n||h.toLowerCase().includes(n))); return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']) }; }
-    function inferColumns(headers, rows){ const colCount = headers.length || (rows[0]?rows[0].length:0); const looksDate=s=>/^\d{8}$/.test((s||'').replace(/\D/g,'')); const looksAmount=s=>{ if(!s) return false; return /[\-+]?\d+[\.,]\d{2}$/.test(s.replace(/\s/g,'')); }; const N=Math.min(rows.length,100); const scores=Array.from({length:colCount},()=>({amount:0,date:0,text:0,numeric:0})); for(let r=0;r<N;r++){const row=rows[r]||[]; for(let c=0;c<colCount;c++){ const v=row[c]||''; if(looksAmount(v)) scores[c].amount++; if(looksDate(v)) scores[c].date++; if(/^[\d\s.,-]+$/.test(v)) scores[c].numeric++; else scores[c].text++; }} let amount=0, amountScore=-1; for(let c=0;c<colCount;c++){ if(scores[c].amount>amountScore && scores[c].date===0){ amountScore=scores[c].amount; amount=c; } } let date=-1, dateScore=-1; for(let c=0;c<colCount;c++){ if(scores[c].date>dateScore){ dateScore=scores[c].date; date=c; } } let account=-1; for(let c=0;c<colCount;c++){ if(c!==date && c!==amount){ account=c; break; } } const description=Math.max(0,colCount-1); return { date, account, description, category:-1, amount } }
+    function inferColumns(headers, rows){
+      const colCount = headers.length || (rows[0]?rows[0].length:0);
+      const looksDate=s=>/^\d{8}$/.test((s||'').replace(/\D/g,''));
+      const looksAmount=s=>{ if(!s) return false; return /[\-+]?\d+[\.,]\d{2}$/.test((s+"").replace(/\s/g,'')); };
+      const N=Math.min(rows.length,300);
+      const stats=Array.from({length:colCount},()=>({amountScore:0,dateScore:0,neg:0,pos:0,text:0,numeric:0}));
+      for(let r=0;r<N;r++){
+        const row=rows[r]||[];
+        for(let c=0;c<colCount;c++){
+          const v=row[c]||'';
+          if(looksAmount(v)){
+            stats[c].amountScore++;
+            const n=toNumber(v);
+            if(n<0) stats[c].neg++;
+            else if(n>0) stats[c].pos++;
+          }
+          if(looksDate(v)) stats[c].dateScore++;
+          if(/^[\d\s.,-]+$/.test(v)) stats[c].numeric++;
+          else stats[c].text++;
+        }
+      }
+      // choose amount column: prefer one with many negatives (spend), then mixed signs
+      let amount=-1, bestNeg=-1, bestMixed=-1, bestAmtScore=-1;
+      for(let c=0;c<colCount;c++){
+        const s=stats[c];
+        if(s.amountScore>0 && s.dateScore===0){
+          const mixed = (s.neg>0 && s.pos>0) ? 1 : 0;
+          if(s.neg>bestNeg || (s.neg===bestNeg && mixed>bestMixed) || (s.neg===bestNeg && mixed===bestMixed && s.amountScore>bestAmtScore)){
+            amount=c; bestNeg=s.neg; bestMixed=mixed; bestAmtScore=s.amountScore;
+          }
+        }
+      }
+      // choose date column: highest dateScore
+      let date=-1, dateScore=-1;
+      for(let c=0;c<colCount;c++){ if(stats[c].dateScore>dateScore){ dateScore=stats[c].dateScore; date=c; } }
+      // choose account: pick first non-date/non-amount text-dominant column if possible
+      let account=-1; let bestText=Number.NEGATIVE_INFINITY;
+      for(let c=0;c<colCount;c++){
+        if(c===date || c===amount) continue;
+        const s=stats[c];
+        const textScore = s.text - s.numeric; // prefer textual columns
+        if(textScore>bestText){ bestText=textScore; account=c; }
+      }
+      const description=Math.max(0,colCount-1);
+      return { date, account, description, category:-1, amount };
+    }
     function toNumber(s){ if(typeof s!=='string') return Number(s)||0; const cleaned=s.replace(/\s/g,'').replace(/€/g,'').replace(/\./g,'').replace(/,/g,'.'); const n=Number(cleaned); return Number.isFinite(n)?n:0; }
     function monthKey(v){ const s=(v||'').toString(); if(/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`; const d=new Date(s); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; return 'unknown'; }
 
@@ -233,7 +290,11 @@
       let selected = el('monthSelect').value || months[months.length-1] || 'all';
       if (!el('monthSelect').value){
         if (months.length===0){ el('monthSelect').innerHTML='<option value="all">All</option>'; el('monthSelect').value='all'; selected='all'; }
-        else { el('monthSelect').innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join(''); el('monthSelect').value = selected; }
+        else {
+          const opts = ['all', ...months];
+          el('monthSelect').innerHTML = opts.map(m=>`<option value="${m}">${m==='all'?'All':m}</option>`).join('');
+          el('monthSelect').value = selected;
+        }
       }
       const accounts = cols.account>=0 ? Array.from(new Set(rows.map(r=>r[cols.account]).filter(Boolean))) : [];
       if (accounts.length) renderAccountChips(accounts);
@@ -257,8 +318,10 @@
     function renderAccountChips(accounts){ const wrap=el('accountChips'); if(!wrap) return; if(!renderAccountChips._state){ renderAccountChips._state=new Set(accounts); } else { accounts.forEach(a=>renderAccountChips._state.add(a)); } wrap.innerHTML=''; accounts.forEach(acc=>{ const btn=document.createElement('button'); const active=renderAccountChips._state.has(acc); btn.className='btn chip ' + (active?'':'ghost'); btn.textContent=acc; btn.addEventListener('click',()=>{ if(renderAccountChips._state.has(acc)){ renderAccountChips._state.delete(acc); btn.className='btn chip ghost'; } else { renderAccountChips._state.add(acc); btn.className='btn chip'; } load(el('sourcePath').textContent); }); wrap.appendChild(btn); }); }
     function getActiveAccounts(all){ if(!renderAccountChips._state) return new Set(all); if(renderAccountChips._state.size===0) return new Set(all); return new Set(Array.from(renderAccountChips._state)); }
 
-    function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
-    function computeHistoryByMonth(allRows, cols, months){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0, cats:new Map()})); allRows.forEach(r=>{ const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; const cat=(cols.category>=0?r[cols.category]:'Uncategorized')||'Uncategorized'; bucket.cats.set(cat,(bucket.cats.get(cat)||0)+amt); }); return by; }
+  function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
+  function computeHistoryByMonth(allRows, cols, months, activeAccounts){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0})); allRows.forEach(r=>{ if(activeAccounts && cols.account>=0 && activeAccounts.size>0){ const acc=r[cols.account]; if(!activeAccounts.has(acc)) return; } const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; }); return by; }
+
+  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="4">Geen maanddata</td></tr>'; return; } const rows=months.map(m=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
 
     function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
@@ -332,13 +395,14 @@
         if(!rows.length) throw new Error('No rows');
         const sum = summarize(headers, rows);
         lastData = { headers, allRows: rows, sum };
-        const perAccount = computePerAccount(sum);
-        const history = computeHistoryByMonth(rows, sum.cols, sum.months);
+  const perAccount = computePerAccount(sum);
+  const history = computeHistoryByMonth(rows, sum.cols, sum.months, getActiveAccounts(sum.accounts||[]));
 
         updateHeader(sum);
         renderKPIs(sum);
         renderCategories(sum);
-        renderAccounts(perAccount);
+  renderAccounts(perAccount);
+  renderMonthlyBreakdown(history, sum.selected);
         renderTransactions(headers, sum.filtered, sum.cols);
         const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join('');
         el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>';
