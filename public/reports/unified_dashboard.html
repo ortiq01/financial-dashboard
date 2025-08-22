@@ -20,7 +20,7 @@
     header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
     h1 { margin:0; font-size: 1.5rem; }
     .pill { background:#e5f0ff; color:#1e40af; padding:4px 8px; border-radius:999px; font-size:.8rem; }
-    .row { display:flex; flex-wrap:wrap; gap:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:16px; }
     .card { background:var(--card); border-radius:12px; box-shadow: 0 8px 20px rgba(0,0,0,.06); padding:16px; }
     .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
     .kbd { background:#eef2f7; border:1px solid #e5e7eb; padding:6px 8px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
@@ -61,7 +61,39 @@
   .modal input[type="text"], .modal select { width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb; }
   .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
   .show { display:flex !important; }
-    @media (max-width: 720px){ .row { flex-direction:column; } }
+    /* Mobile tweaks */
+    @media (max-width: 720px){
+      .row { flex-direction:column; }
+      body { font-size: 15px; }
+      .wrap { padding: 16px; }
+      header { gap: 10px; }
+      .toolbar { gap: 6px; }
+      .card { padding: 12px; }
+      table { font-size: 14px; }
+      th, td { padding: 8px 6px; }
+      /* Make URL input span full width on mobile */
+      #customUrl { width: 100%; max-width: 100%; }
+    }
+
+    /* Sticky table headers for better context while scrolling */
+    table thead th { position: sticky; top: 0; z-index: 1; }
+
+    /* Narrow phone optimizations */
+    @media (max-width: 380px){
+      body { font-size: 14px; }
+      table { font-size: 13px; }
+      /* Relax card min-width so cards don't force horizontal scroll */
+      .row .card[style*="min-width:380px"], .row .card[style*="min-width:280px"] { min-width: auto !important; }
+      /* Hide low-priority columns to fit */
+      /* Categories: hide Gemiddeld and % columns on very small screens */
+      #catTable th:nth-child(4), #catTable td:nth-child(4),
+      #catTable th:nth-child(5), #catTable td:nth-child(5){ display:none; }
+      /* Monthly: show Maand, Uitgaven, Netto; hide Inkomsten and Delta */
+      #monthTable th:nth-child(2), #monthTable td:nth-child(2),
+      #monthTable th:nth-child(5), #monthTable td:nth-child(5){ display:none; }
+      /* Transactions: show Date, Description, Amount; hide extras */
+      #txTable th:nth-child(n+4), #txTable td:nth-child(n+4){ display:none; }
+    }
   </style>
   <meta name="robots" content="noindex" />
   <meta name="color-scheme" content="light" />
@@ -126,7 +158,7 @@
         </div>
         <h3 class="section-title" style="margin-top:12px;">Per Rekening</h3>
         <div style="overflow:auto">
-          <table>
+          <table id="catTable">
             <thead><tr><th>Rekening</th><th>In</th><th>Uit</th><th>Netto</th></tr></thead>
             <tbody id="acctBody"></tbody>
           </table>
@@ -154,7 +186,7 @@
     <div class="card">
     <h3 class="section-title">Maandelijkse Samenvatting</h3>
       <div style="overflow:auto">
-        <table>
+  <table id="monthTable">
   <thead><tr><th>Maand</th><th>Inkomsten</th><th>Uitgaven</th><th>Netto</th><th>Δ Netto (vs vorige maand)</th></tr></thead>
           <tbody id="monthBody"></tbody>
         </table>
@@ -165,7 +197,7 @@
     <h3 class="section-title">Recentste Transacties</h3>
       <div id="txFilterBar" class="toolbar" style="margin-bottom:8px;"></div>
       <div style="overflow:auto">
-        <table>
+  <table id="txTable">
       <thead id="txHead"></thead>
           <tbody id="txBody"></tbody>
         </table>
@@ -515,7 +547,7 @@
 
     function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
-  function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); const tfoot=el('catTotalRow'); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; if(tfoot) tfoot.innerHTML=''; return; } const totalNeg=entries.reduce((a,[,v])=>a+Math.abs(v.expenses||0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs((b[1].expenses||0)) - Math.abs((a[1].expenses||0))).map(([cat,v])=>{ const expAbs=Math.abs(v.expenses||0); const inc=v.income||0; const net=(inc + (v.expenses||0)); const countOut=v.countOut||0; const avg=countOut>0?expAbs/countOut:0; const pct=denom>0?(expAbs/denom)*100:0; const active = (selectedCategory && selectedCategory===cat) ? ' row-active' : ''; return `<tr class=\"row-click${active}\" data-cat=\"${cat}\"><td><span class=\"category-tag\">${cat}</span></td><td>${countOut}</td><td class=\"amount ${net>=0?'pos':'neg'}\">${(net>=0?'+':'')+euro.format(net)}</td><td class=\"amount\">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const cat=tr.getAttribute('data-cat'); setCategoryFilter(cat); }); }); const totals = entries.reduce((acc,[,v])=>{ acc.countOut += (v.countOut||0); acc.inc += (v.income||0); acc.exp += Math.abs(v.expenses||0); return acc; }, {countOut:0, inc:0, exp:0}); const netTot = totals.inc - totals.exp; if(tfoot){ tfoot.innerHTML = `<td><strong>Totaal</strong></td><td>${totals.countOut}</td><td class=\"amount ${netTot>=0?'pos':'neg'}\">${(netTot>=0?'+':'')+euro.format(netTot)}</td><td class=\"amount\">—</td><td>100%</td>`; } }
+  function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); const tfoot=el('catTotalRow'); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; if(tfoot) tfoot.innerHTML=''; return; } const totalNeg=entries.reduce((a,[,v])=>a+Math.abs(v.expenses||0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs((b[1].expenses||0)) - Math.abs((a[1].expenses||0))).map(([cat,v])=>{ const expAbs=Math.abs(v.expenses||0); const inc=v.income||0; const net=(inc + (v.expenses||0)); const countOut=v.countOut||0; const countIn=v.countIn||0; const countDisplay = (cat==='Inkomen') ? countIn : countOut; const avg=countOut>0?expAbs/countOut:0; const pct=denom>0?(expAbs/denom)*100:0; const active = (selectedCategory && selectedCategory===cat) ? ' row-active' : ''; return `<tr class=\"row-click${active}\" data-cat=\"${cat}\"><td><span class=\"category-tag\">${cat}</span></td><td>${countDisplay}</td><td class=\"amount ${net>=0?'pos':'neg'}\">${(net>=0?'+':'')+euro.format(net)}</td><td class=\"amount\">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const cat=tr.getAttribute('data-cat'); setCategoryFilter(cat); }); }); const countsDisplayedTotal = entries.reduce((acc,[cat,v])=>{ const ci=v.countIn||0; const co=v.countOut||0; return acc + (cat==='Inkomen' ? ci : co); }, 0); const totals = entries.reduce((acc,[,v])=>{ acc.inc += (v.income||0); acc.exp += Math.abs(v.expenses||0); return acc; }, {inc:0, exp:0}); const netTot = totals.inc - totals.exp; if(tfoot){ tfoot.innerHTML = `<td><strong>Totaal</strong></td><td>${countsDisplayedTotal}</td><td class=\"amount ${netTot>=0?'pos':'neg'}\">${(netTot>=0?'+':'')+euro.format(netTot)}</td><td class=\"amount\">—</td><td>100%</td>`; } }
     function renderAccounts(perAccount){ const tbody=el('acctBody'); const rows=perAccount.map(a=>`<tr><td>${a.account}</td><td class="amount pos">${euro.format(a.income)}</td><td class="amount neg">${euro.format(Math.abs(a.expenses))}</td><td class="amount ${a.net>=0?'pos':'neg'}">${(a.net>=0?'+':'')+euro.format(a.net)}</td></tr>`).join(''); tbody.innerHTML=rows||'<tr><td colspan="4">Geen data</td></tr>'; }
     function renderTransactions(headers, rows, cols){
       // Apply category filter if active
