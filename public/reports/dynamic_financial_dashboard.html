@@ -120,7 +120,7 @@
     }
 
     function mapColumns(headers) {
-      // Try to resolve standard fields across English/Dutch synonyms
+      // Try to resolve standard fields across English/Dutch synonyms when headers exist
       const idx = (names) => headers.findIndex(h => names.some(n => h.toLowerCase() === n || h.toLowerCase().includes(n)));
       return {
         date: idx(['date','datum']),
@@ -129,6 +129,47 @@
         category: idx(['category','categorie']),
         amount: idx(['amount','bedrag','value'])
       };
+    }
+
+    function inferColumns(headers, rows) {
+      // Heuristics for headerless exports (e.g., bank .TAB)
+      const colCount = headers.length || (rows[0] ? rows[0].length : 0);
+      const looksDate = (s) => /^\d{8}$/.test((s||'').replace(/\D/g,''));
+      const looksAmount = (s) => {
+        if (!s) return false;
+        // prefer values with decimal separators or sign
+        return /[\-+]?\d+[\.,]\d{2}$/.test(s.replace(/\s/g,''));
+      };
+      // Score columns across first N rows
+      const N = Math.min(rows.length, 100);
+      const scores = Array.from({length: colCount}, () => ({ amount:0, date:0, text:0, numeric:0 }));
+      for (let r=0; r<N; r++) {
+        const row = rows[r] || [];
+        for (let c=0; c<colCount; c++) {
+          const v = row[c] || '';
+          if (looksAmount(v)) scores[c].amount++;
+          if (looksDate(v)) scores[c].date++;
+          if (/^[\d\s.,-]+$/.test(v)) scores[c].numeric++; else scores[c].text++;
+        }
+      }
+      // pick best candidates
+      let amount = 0; let amountScore = -1;
+      for (let c=0; c<colCount; c++) {
+        if (scores[c].amount > amountScore && scores[c].date === 0) { amountScore = scores[c].amount; amount = c; }
+      }
+      // date: choose first column with frequent date patterns
+      let date = -1; let dateScore = -1;
+      for (let c=0; c<colCount; c++) {
+        if (scores[c].date > dateScore) { dateScore = scores[c].date; date = c; }
+      }
+      // account: choose first column with mostly numeric and not date/amount
+      let account = -1;
+      for (let c=0; c<colCount; c++) {
+        if (c !== date && c !== amount) { account = c; break; }
+      }
+      // description: last column
+      const description = Math.max(0, colCount - 1);
+      return { date, account, description, category: -1, amount };
     }
 
     function toNumber(s) {
@@ -140,7 +181,11 @@
     }
 
     function summarize(headers, rows) {
-      const cols = mapColumns(headers);
+      let cols = mapColumns(headers);
+      const noColsResolved = [cols.date, cols.account, cols.description, cols.category, cols.amount].every(v => v === -1);
+      if (noColsResolved || cols.amount === -1) {
+        cols = inferColumns(headers, rows);
+      }
       let income = 0, expenses = 0;
       const catAgg = new Map();
       rows.forEach(r => {
