@@ -124,10 +124,10 @@
     </div>
 
     <div class="card">
-      <h3 class="section-title">Recentste Transacties</h3>
+    <h3 class="section-title">Recentste Transacties</h3>
       <div style="overflow:auto">
         <table>
-          <thead id="txHead"></thead>
+      <thead id="txHead"></thead>
           <tbody id="txBody"></tbody>
         </table>
       </div>
@@ -264,7 +264,22 @@
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
     function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; return; } const totalNeg=entries.reduce((a,[,v])=>a+(v.sum<0?Math.abs(v.sum):0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum)).map(([cat,v])=>{ const count=v.count||0; const avg=count>0?Math.abs(v.sum)/count:0; const pct=v.sum<0?(Math.abs(v.sum)/denom)*100:0; return `<tr><td><span class="category-tag">${cat}</span></td><td>${count}</td><td class="amount ${v.sum>=0?'pos':'neg'}">${euro.format(v.sum)}</td><td class="amount">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; }
     function renderAccounts(perAccount){ const tbody=el('acctBody'); const rows=perAccount.map(a=>`<tr><td>${a.account}</td><td class="amount pos">${euro.format(a.income)}</td><td class="amount neg">${euro.format(Math.abs(a.expenses))}</td><td class="amount ${a.net>=0?'pos':'neg'}">${(a.net>=0?'+':'')+euro.format(a.net)}</td></tr>`).join(''); tbody.innerHTML=rows||'<tr><td colspan="4">Geen data</td></tr>'; }
-    function renderTransactions(headers, rows, cols){ const showIdx=[cols.date, cols.description, cols.category, cols.amount].filter(i=>i>=0); const displayHeaders=(function(){ const colCount=rows[0]?.length || headers.length || 0; let d=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<d.length) d[cols.date]='Datum'; if (cols.description>=0 && cols.description<d.length) d[cols.description]='Beschrijving'; if (cols.category>=0 && cols.category<d.length) d[cols.category]='Categorie'; if (cols.amount>=0 && cols.amount<d.length) d[cols.amount]='Bedrag'; if (cols.account>=0 && cols.account<d.length) d[cols.account]='Rekening'; return d; })(); el('txHead').innerHTML = `<tr>${showIdx.map(i=>`<th>${displayHeaders[i]||'Col'}</th>`).join('')}</tr>`; const max=50; const bodyRows = rows.slice(-max).reverse().map(r=>{ const tds=showIdx.map(i=>{ if(i===cols.amount){ const val=toNumber(r[i]); return `<td class="amount ${val>=0?'pos':'neg'}">${euro.format(val)}</td>`; } return `<td>${r[i]||''}</td>`; }).join(''); return `<tr>${tds}</tr>`; }).join(''); el('txBody').innerHTML = bodyRows || '<tr><td colspan="4">Geen transacties</td></tr>'; }
+    function renderTransactions(headers, rows, cols){
+      const showIdx=[cols.date, cols.description, cols.category, cols.amount].filter(i=>i>=0);
+      const displayHeaders=(function(){ const colCount=rows[0]?.length || headers.length || 0; let d=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<d.length) d[cols.date]='Datum'; if (cols.description>=0 && cols.description<d.length) d[cols.description]='Beschrijving'; if (cols.category>=0 && cols.category<d.length) d[cols.category]='Categorie (Bron)'; if (cols.amount>=0 && cols.amount<d.length) d[cols.amount]='Bedrag'; if (cols.account>=0 && cols.account<d.length) d[cols.account]='Rekening'; return d; })();
+      // Add CBS columns
+      el('txHead').innerHTML = `<tr>${showIdx.map(i=>`<th>${displayHeaders[i]||'Col'}</th>`).join('')}<th>CBS Hoofdcategorie</th><th>CBS Subcategorie</th></tr>`;
+      const max=50;
+      const bodyRows = rows.slice(-max).reverse().map(r=>{
+        const cbs = categorizeCBS(r, cols);
+        const tds=showIdx.map(i=>{
+          if(i===cols.amount){ const val=toNumber(r[i]); return `<td class="amount ${val>=0?'pos':'neg'}">${euro.format(val)}</td>`; }
+          return `<td>${r[i]||''}</td>`;
+        }).join('');
+        return `<tr>${tds}<td>${cbs.main}</td><td>${cbs.sub}</td></tr>`;
+      }).join('');
+      el('txBody').innerHTML = bodyRows || '<tr><td colspan="6">Geen transacties</td></tr>';
+    }
 
     function buildDisplayHeaders(headers, cols){ const colCount=lastData.sum?.filtered?.[0]?.length || headers.length || 0; let display=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<display.length) display[cols.date]='Date'; if (cols.account>=0 && cols.account<display.length) display[cols.account]='Account'; if (cols.description>=0 && cols.description<display.length) display[cols.description]='Description'; if (cols.category>=0 && cols.category<display.length) display[cols.category]='Category'; if (cols.amount>=0 && cols.amount<display.length) display[cols.amount]='Amount'; return display; }
     function toCSV(rows){ return rows.map(r=>r.map(v=>{ const s=(v??'').toString(); if(/[",\n;\t]/.test(s)) return '"'+s.replace(/"/g,'""')+'"'; return s; }).join(',')).join('\n'); }
