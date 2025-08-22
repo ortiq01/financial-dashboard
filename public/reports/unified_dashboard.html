@@ -98,6 +98,7 @@
         <div id="accountChips" class="toolbar" style="gap:6px"></div>
         <button id="exportTxBtn" class="btn">📊 Export Transacties (CSV)</button>
         <button id="exportCatBtn" class="btn">📂 Export Categorieën (CSV)</button>
+  <button id="rulesBtn" class="btn ghost">⚙️ Beheer regels</button>
       </div>
     </div>
 
@@ -186,6 +187,30 @@
       <div class="actions">
         <button id="editCancel" class="btn ghost">Annuleren</button>
         <button id="editSave" class="btn">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules Manager Modal -->
+  <div id="rulesModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+    <div class="modal">
+      <h3 id="rulesTitle">Regelbeheer</h3>
+      <div class="muted" style="margin-bottom:8px;">Bekijk of verwijder handmatige categorie-overrides.</div>
+      <div style="max-height:40vh; overflow:auto;">
+        <h4 class="section-title">Trefwoordregels</h4>
+        <table>
+          <thead><tr><th>Keyword</th><th>Hoofdcategorie</th><th>Subcategorie</th><th>Actie</th></tr></thead>
+          <tbody id="kwRulesBody"></tbody>
+        </table>
+        <h4 class="section-title" style="margin-top:12px;">Transactie-specifieke regels</h4>
+        <table>
+          <thead><tr><th>Sleutel</th><th>Hoofdcategorie</th><th>Subcategorie</th><th>Actie</th></tr></thead>
+          <tbody id="keyRulesBody"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button id="rulesClear" class="btn ghost">Alles wissen</button>
+        <button id="rulesClose" class="btn">Sluiten</button>
       </div>
     </div>
   </div>
@@ -479,6 +504,21 @@
     function persistEdit(){ const cols = lastData?.sum?.cols || {}; const rows = lastData?.allRows || []; if(!currentEditKey){ closeEditModal(); return; } const row = rows.find(r=> txnKey(r, cols) === currentEditKey); if(!row){ closeEditModal(); return; } const main = el('editMain').value || 'Overige Goederen & Diensten'; const sub = el('editSub').value || 'Overig'; const applyByKeyword = el('editApplyKeyword').checked; const keywordRaw = el('editKeyword').value.trim(); const ov = getOverrides(); if(applyByKeyword){ if(!keywordRaw){ alert('Vul een trefwoord in of kies "alleen deze transactie".'); return; } ov.byKeyword.push({ keyword: normalize(keywordRaw), main, sub }); } else { ov.byKey[currentEditKey] = { main, sub }; }
       saveOverrides(ov); closeEditModal(); recomputeAndRender(); }
 
+    // Rules manager
+    function openRulesModal(){ renderRulesLists(); el('rulesModal').classList.add('show'); }
+    function closeRulesModal(){ el('rulesModal').classList.remove('show'); }
+    function renderRulesLists(){ const ov=getOverrides(); const kwBody=el('kwRulesBody'); const keyBody=el('keyRulesBody');
+      kwBody.innerHTML = (ov.byKeyword.length? ov.byKeyword.map((r,i)=>`<tr><td>${r.keyword}</td><td>${r.main}</td><td>${r.sub}</td><td><button class=\"btn ghost\" data-idx=\"${i}\" data-type=\"kw\">Verwijder</button></td></tr>`).join('') : '<tr><td colspan="4" class="muted">Geen trefwoordregels</td></tr>');
+      const keys = Object.keys(ov.byKey||{});
+      keyBody.innerHTML = (keys.length? keys.map(k=>{ const v=ov.byKey[k]; return `<tr><td style="font-family:monospace; font-size:.85rem;">${k}</td><td>${v.main}</td><td>${v.sub}</td><td><button class=\"btn ghost\" data-key=\"${k}\" data-type=\"key\">Verwijder</button></td></tr>`; }).join('') : '<tr><td colspan="4" class="muted">Geen transactie-specifieke regels</td></tr>');
+      // wire remove buttons
+      kwBody.querySelectorAll('button[data-type="kw"]').forEach(b=> b.addEventListener('click', ()=>{ const idx=Number(b.getAttribute('data-idx')); removeKeywordRule(idx); }));
+      keyBody.querySelectorAll('button[data-type="key"]').forEach(b=> b.addEventListener('click', ()=>{ const k=b.getAttribute('data-key'); removeKeyRule(k); }));
+    }
+    function removeKeywordRule(idx){ const ov=getOverrides(); if(idx>=0 && idx<ov.byKeyword.length){ ov.byKeyword.splice(idx,1); saveOverrides(ov); renderRulesLists(); recomputeAndRender(); } }
+    function removeKeyRule(k){ const ov=getOverrides(); if(ov.byKey && ov.byKey[k]){ delete ov.byKey[k]; saveOverrides(ov); renderRulesLists(); recomputeAndRender(); } }
+    function clearAllOverrides(){ if(!confirm('Weet je zeker dat je alle regels wilt wissen?')) return; saveOverrides({byKey:{}, byKeyword:[]}); renderRulesLists(); recomputeAndRender(); }
+
     async function load(url){
       try{
         el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
@@ -522,6 +562,11 @@
       el('editSave').addEventListener('click', persistEdit);
       // close modal on overlay click
       el('editModal').addEventListener('click', (e)=>{ if(e.target===el('editModal')) closeEditModal(); });
+  // rules manager
+  el('rulesBtn').addEventListener('click', openRulesModal);
+  el('rulesClose').addEventListener('click', closeRulesModal);
+  el('rulesModal').addEventListener('click', (e)=>{ if(e.target===el('rulesModal')) closeRulesModal(); });
+  el('rulesClear').addEventListener('click', clearAllOverrides);
     });
   </script>
 </body>
