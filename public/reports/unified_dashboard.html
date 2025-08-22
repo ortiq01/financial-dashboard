@@ -392,7 +392,15 @@
   { main:'Overige Goederen & Diensten', sub:'Persoonlijke Verzorging', any:["kapper","schoonheidssalon","drogist","cosmetica"] },
   { main:'Overige Goederen & Diensten', sub:'Huishoudelijke Artikelen', any:["ikea","blokker","xenos","sostrene grene","sostrene","flying tiger","gamma","karwei","praxis","hema","bol.com","coolblue"] },
   { main:'Overige Goederen & Diensten', sub:'Financiële Diensten', any:["bankkosten","advieskosten","belegging","broker","degiro","saxo","binck","peaks","meesman","brand new day","transaction fee","servicefee","service fee","paypal"] },
-  { main:'Overheid & Belastingen', sub:'Belastingen & Heffingen', any:["belastingdienst","toeslagen","omzetbelasting","btw","cjib","boete","leges","gemeente"] },
+  // Income-specific granular rules (dir: 'in' ensures only positive amounts match)
+  { main:'Inkomen', sub:'Salaris', any:["salaris","loon","payroll"], dir:'in' },
+  { main:'Inkomen', sub:'Uitkering/Toeslag', any:["uwv","uitkering","toeslag","kinderbijslag"], dir:'in' },
+  { main:'Inkomen', sub:'Pensioen', any:["pensioen","abp","pfzw","pensioenfonds","bpf","pmte"], dir:'in' },
+  { main:'Inkomen', sub:'Rente & Dividend', any:["rente","dividend","coupon","rentebijschrijving","spaarrente","rentevergoeding"], dir:'in' },
+  { main:'Inkomen', sub:'Belasting Teruggave', any:["belastingdienst","teruggave","aangifte","inkomstenbelasting","btw-teruggave","toeslagen"], dir:'in' },
+  // Government and taxes (expenses only)
+  { main:'Overheid & Belastingen', sub:'Belastingen & Heffingen', any:["belastingdienst","toeslagen","omzetbelasting","btw","cjib","boete","leges","gemeente"], dir:'out' },
+  // Generic income catch-all (kept for backwards compatibility)
   { main:'Inkomen', sub:'Salaris & Uitkering', any:["salaris","loon","payroll","uwv","uitkering","pensioen"] },
   { main:'Onderwijs & Kinderen', sub:'DUO/Studie', any:["duo","studiefinanciering","ov-studentenkaart"] },
     ];
@@ -419,8 +427,11 @@
       // 4) Keyword rules
       for (const rule of cbsRules){
         if (!rule.any) continue;
-        const hit = rule.any.find(k=> desc.includes(k));
-        if (hit) return { main: rule.main, sub: rule.sub, source:'Regel', detail:`keyword "${hit}"` };
+    // Respect direction if provided: 'in' -> positive amounts, 'out' -> negative amounts
+    if (rule.dir === 'in' && !(amt >= 0)) continue;
+    if (rule.dir === 'out' && !(amt < 0)) continue;
+    const hit = rule.any.find(k => desc.includes(k));
+    if (hit) return { main: rule.main, sub: rule.sub, source: 'Regel', detail: `keyword "${hit}"` };
       }
       // 4b) If positive amount and no rule matched, classify as Income by default
       if (amt >= 0){
