@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financieel Analyse Dashboard - Familie Hernandez Ortiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+
+        /* Alert Section */
+        .alerts {
+            margin-bottom: 30px;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        
+        .alert.warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        
+        .alert.success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        
+        .alert-icon {
+            font-size: 1.5em;
+            margin-right: 15px;
+        }
+        
+        /* Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card.private {
+            border-left-color: #e74c3c;
+        }
+        
+        .card.business {
+            border-left-color: #3498db;
+        }
+        
+        .card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .balance {
+            font-size: 2.2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .balance.positive {
+            color: #27ae60;
+        }
+        
+        .balance.negative {
+            color: #e74c3c;
+        }
+        
+        .balance.neutral {
+            color: #3498db;
+        }
+        
+        /* Navigation Tabs */
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 5px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            white-space: nowrap;
+            min-width: 150px;
+        }
+        
+        .tab:hover {
+            background: rgba(52, 152, 219, 0.1);
+        }
+        
+        .tab.active {
+            background: #3498db;
+            color: white;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        /* Content Sections */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Tables */
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        
+        .table-header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        
+        /* Amount styling */
+        .amount {
+            font-weight: bold;
+            text-align: right;
+        }
+        
+        .amount.positive {
+            color: #27ae60;
+        }
+        
+        .amount.negative {
+            color: #e74c3c;
+        }
+        
+        /* Category tags */
+        .category-tag {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .cat-inkomsten { background: #27ae60; }
+        .cat-zakelijk { background: #3498db; }
+        .cat-vaste-lasten { background: #e74c3c; }
+        .cat-boodschappen { background: #f39c12; }
+        .cat-vervoer { background: #9b59b6; }
+        .cat-sparen { background: #16a085; }
+        .cat-belastingen { background: #7f8c8d; }
+        .cat-lifestyle { background: #e67e22; }
+        
+        /* Insights Section */
+        .insights {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+        
+        .insights h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+        }
+        
+        .insight-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .insight-item h4 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .insight-item p {
+            color: #5a6c7d;
+            line-height: 1.5;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                min-width: auto;
+            }
+            
+            table {
+                font-size: 0.9em;
+            }
+            
+            th, td {
+                padding: 10px 8px;
+            }
+        }
+
+        /* Export buttons */
+        .export-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .export-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .export-btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        /* Category management */
+        .category-management {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .category-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Financieel Analyse Dashboard</h1>
+            <p>Familie Hernandez Ortiz | Periode: April - Juli 2025</p>
+            <p style="font-size: 0.9em; opacity: 0.8;">Laatst bijgewerkt: 19 juli 2025</p>
+        </div>
+        
+        <div class="content">
+            <!-- Alert Section -->
+            <div class="alerts">
+                <div class="alert warning">
+                    <span class="alert-icon">⚠️</span>
+                    <div>
+                        <strong>Aandacht vereist:</strong> ABN AMRO Privé rekening heeft een laag saldo (€154,31). 
+                        Overweeg geld over te maken vanuit de zakelijke rekening.
+                    </div>
+                </div>
+                <div class="alert success">
+                    <span class="alert-icon">✅</span>
+                    <div>
+                        <strong>Positief:</strong> ING Zakelijk toont sterke inkomsten van €20.812 in juli. 
+                        Goede cashflow voor investeringen en reserves.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="card private">
+                    <h3>🏠 ABN AMRO Privé</h3>
+                    <div class="balance negative">€154,31</div>
+                    <p><strong>Status:</strong> Kritiek laag saldo</p>
+                    <p><strong>Laatste maand:</strong> -€1.420 (Juli)</p>
+                    <p style="margin-top: 10px; color: #e74c3c; font-weight: bold;">
+                        Actie nodig: Aanvullen vanuit zakelijke rekening
+                    </p>
+                </div>
+                
+                <div class="card business">
+                    <h3>💼 ING Zakelijk</h3>
+                    <div class="balance positive">€20.812+</div>
+                    <p><strong>Status:</strong> Uitstekende cashflow</p>
+                    <p><strong>Laatste maand:</strong> +€14.153 (Juli)</p>
+                    <p style="margin-top: 10px; color: #27ae60; font-weight: bold;">
+                        Mogelijkheid voor extra investeringen
+                    </p>
+                </div>
+                
+                <div class="card business">
+                    <h3>📊 Totaal Overzicht</h3>
+                    <div class="balance positive">€12.733</div>
+                    <p><strong>Gecombineerde positie:</strong> Gezond</p>
+                    <p><strong>Trend:</strong> Stijgend door projectinkomsten</p>
+                    <p style="margin-top: 10px; color: #3498db; font-weight: bold;">
+                        Focus op liquiditeitsverdeling
+                    </p>
+                </div>
+            </div>
+
+            <!-- Export Options -->
+            <div class="export-buttons">
+                <button class="export-btn" onclick="exportToCSV()">📊 Exporteer naar CSV</button>
+                <button class="export-btn" onclick="showAirtableStructure()">📋 Airtable Structuur</button>
+                <button class="export-btn" onclick="generateReport()">📄 Genereer Rapport</button>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('overview')">📊 Maandoverzicht</button>
+                <button class="tab" onclick="showTab('accounts')">🏦 Per Rekening</button>
+                <button class="tab" onclick="showTab('categories')">📂 Categorieën</button>
+                <button class="tab" onclick="showTab('insights')">💡 Inzichten</button>
+                <button class="tab" onclick="showTab('settings')">⚙️ Instellingen</button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-content active">
+                <div class="table-container">
+                    <div class="table-header">📊 Maandelijkse Samenvatting - Juli 2025</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rekening</th>
+                                <th>Inkomsten</th>
+                                <th>Uitgaven</th>
+                                <th>Netto Resultaat</th>
+                                <th>Status</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>ABN AMRO Privé</strong></td>
+                                <td class="amount positive">€2.815,00</td>
+                                <td class="amount negative">-€4.235,00</td>
+                                <td class="amount negative">-€1.420,00</td>
+                                <td>⚠️ Tekort</td>
+                                <td>📉 Dalend</td>
+                            </tr>
+                            <tr>
+                                <td><strong>ING Zakelijk</strong></td>
+                                <td class="amount positive">€22.352,60</td>
+                                <td class="amount negative">-€8.200,00</td>
+                                <td class="amount positive">+€14.152,60</td>
+                                <td>✅ Uitstekend</td>
+                                <td>📈 Stijgend</td>
+                            </tr>
+                            <tr style="background: #f8f9fa; font-weight: bold;">
+                                <td><strong>TOTAAL</strong></td>
+                                <td class="amount positive">€25.167,60</td>
+                                <td class="amount negative">-€12.435,00</td>
+                                <td class="amount positive">+€12.732,60</td>
+                                <td>✅ Positief</td>
+                                <td>📈 Groeiend</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">📈 Historische Vergelijking (April - Juli 2025)</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Maand</th>
+                                <th>Totale Inkomsten</th>
+                                <th>Totale Uitgaven</th>
+                                <th>Netto Resultaat</th>
+                                <th>Grootste Uitgave</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Juli 2025</strong></td>
+                                <td class="amount positive">€25.167,60</td>
+                                <td class="amount negative">-€12.435,00</td>
+                                <td class="amount positive">+€12.732,60</td>
+                                <td>Beleggingen (-€2.500)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Juni 2025</strong></td>
+                                <td class="amount positive">€22.352,60</td>
+                                <td class="amount negative">-€8.200,00</td>
+                                <td class="amount positive">+€14.152,60</td>
+                                <td>Operationele kosten</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mei 2025</strong></td>
+                                <td class="amount positive">€21.575,00</td>
+                                <td class="amount negative">-€24.112,00</td>
+                                <td class="amount negative">-€2.537,00</td>
+                                <td>Belastingen (-€7.837)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>April 2025</strong></td>
+                                <td class="amount positive">€18.500,00</td>
+                                <td class="amount negative">-€16.877,00</td>
+                                <td class="amount positive">+€1.623,00</td>
+                                <td>BTW (-€8.641)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Accounts Tab -->
+            <div id="accounts" class="tab-content">
+                <div class="table-container">
+                    <div class="table-header">🏠 ABN AMRO Privé - Juli 2025 Transacties</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Beschrijving</th>
+                                <th>Categorie</th>
+                                <th>Bedrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>15-07</td>
+                                <td>Belastingdienst - Maanduitkering</td>
+                                <td><span class="category-tag cat-inkomsten">Inkomsten</span></td>
+                                <td class="amount positive">€315,00</td>
+                            </tr>
+                            <tr>
+                                <td>15-07</td>
+                                <td>RDW - Kenteken registratie</td>
+                                <td><span class="category-tag cat-vervoer">Vervoer</span></td>
+                                <td class="amount negative">-€1,25</td>
+                            </tr>
+                            <tr>
+                                <td>17-07</td>
+                                <td>NS Groep - Reiskosten</td>
+                                <td><span class="category-tag cat-vervoer">Vervoer</span></td>
+                                <td class="amount negative">-€5,95</td>
+                            </tr>
+                            <tr>
+                                <td>19-07</td>
+                                <td>Diverse boodschappen</td>
+                                <td><span class="category-tag cat-boodschappen">Boodschappen</span></td>
+                                <td class="amount negative">-€127,50</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">💼 ING Zakelijk - Juli 2025 Transacties</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Beschrijving</th>
+                                <th>Categorie</th>
+                                <th>Bedrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>03-07</td>
+                                <td>Magnit Global Netherlands - TenneT Project</td>
+                                <td><span class="category-tag cat-zakelijk">Omzet</span></td>
+                                <td class="amount positive">€20.812,00</td>
+                            </tr>
+                            <tr>
+                                <td>11-07</td>
+                                <td>RM Wouters - Maandelijkse betaling</td>
+                                <td><span class="category-tag cat-zakelijk">Inkomsten</span></td>
+                                <td class="amount positive">€250,00</td>
+                            </tr>
+                            <tr>
+                                <td>11-07</td>
+                                <td>Naar Beleggingsrekening - Spaarbeleggen</td>
+                                <td><span class="category-tag cat-sparen">Investering</span></td>
+                                <td class="amount negative">-€2.500,00</td>
+                            </tr>
+                            <tr>
+                                <td>15-07</td>
+                                <td>Q.J. Hernandez Ortiz - Privé leening</td>
+                                <td><span class="category-tag cat-zakelijk">Privé Transfer</span></td>
+                                <td class="amount negative">-€300,00</td>
+                            </tr>
+                            <tr>
+                                <td>18-07</td>
+                                <td>Vodafone Libertel - Juli factuur zakelijk</td>
+                                <td><span class="category-tag cat-vaste-lasten">Telecom</span></td>
+                                <td class="amount negative">-€300,62</td>
+                            </tr>
+                            <tr>
+                                <td>19-07</td>
+                                <td>M.A. Butzelaar - Pensioensparen</td>
+                                <td><span class="category-tag cat-sparen">Pensioen</span></td>
+                                <td class="amount negative">-€250,00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Categories Tab -->
+            <div id="categories" class="tab-content">
+                <div class="category-management">
+                    <h3>📂 Verbeterde Categoriestructuur</h3>
+                    <p style="margin-bottom: 20px; color: #5a6c7d;">
+                        Geoptimaliseerd voor Nederlandse huishoudboekhouding volgens standaard financiële categorieën.
+                    </p>
+                    
+                    <div class="category-grid">
+                        <div class="category-item" style="border-left-color: #27ae60;">
+                            <h4>💰 Inkomsten</h4>
+                            <p><strong>Subcategorieën:</strong> Salaris, Freelance, Uitkeringen, Rente, Overig</p>
+                            <p><strong>Juli totaal:</strong> €2.815,00</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #3498db;">
+                            <h4>💼 Zakelijke Inkomsten</h4>
+                            <p><strong>Subcategorieën:</strong> Factuuromzet, Projectinkomsten, Terugbetalingen</p>
+                            <p><strong>Juli totaal:</strong> €21.062,00</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #e74c3c;">
+                            <h4>🏠 Vaste Lasten</h4>
+                            <p><strong>Subcategorieën:</strong> Hypotheek/Huur, Verzekeringen, Energie, Water, Telecom</p>
+                            <p><strong>Juli totaal:</strong> -€300,62</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #f39c12;">
+                            <h4>🛒 Boodschappen</h4>
+                            <p><strong>Subcategorieën:</strong> Supermarkt, Speciaalzaken, Online, Restaurants</p>
+                            <p><strong>Juli totaal:</strong> -€127,50</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #9b59b6;">
+                            <h4>🚗 Vervoer</h4>
+                            <p><strong>Subcategorieën:</strong> Brandstof, OV, Onderhoud, Verzekering, Parkeren</p>
+                            <p><strong>Juli totaal:</strong> -€7,20</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #16a085;">
+                            <h4>📈 Sparen & Beleggen</h4>
+                            <p><strong>Subcategorieën:</strong> Spaarrekening, Beleggingen, Pensioen, Crypto</p>
+                            <p><strong>Juli totaal:</strong> -€2.750,00</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #7f8c8d;">
+                            <h4>🏛️ Belastingen</h4>
+                            <p><strong>Subcategorieën:</strong> Inkomstenbelasting, BTW, Gemeentebelasting</p>
+                            <p><strong>Juli totaal:</strong> €0,00</p>
+                        </div>
+                        
+                        <div class="category-item" style="border-left-color: #e67e22;">
+                            <h4>🎯 Lifestyle</h4>
+                            <p><strong>Subcategorieën:</strong> Kleding, Entertainment, Sport, Hobby, Cadeaus</p>
+                            <p><strong>Juli totaal:</strong> -€0,00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">📊 Uitgaven per Categorie - Juli 2025</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Categorie</th>
+                                <th>Aantal Transacties</th>
+                                <th>Totaal Bedrag</th>
+                                <th>Gemiddeld per Transactie</th>
+                                <th>% van Totale Uitgaven</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="category-tag cat-sparen">📈 Sparen & Beleggen</span></td>
+                                <td>2</td>
+                                <td class="amount negative">-€2.750,00</td>
+                                <td class="amount">€1.375,00</td>
+                                <td>22,1%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-vaste-lasten">🏠 Vaste Lasten</span></td>
+                                <td>1</td>
+                                <td class="amount negative">-€300,62</td>
+                                <td class="amount">€300,62</td>
+                                <td>2,4%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-zakelijk">💼 Zakelijk Transfer</span></td>
+                                <td>1</td>
+                                <td class="amount negative">-€300,00</td>
+                                <td class="amount">€300,00</td>
+                                <td>2,4%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-boodschappen">🛒 Boodschappen</span></td>
+                                <td>3</td>
+                                <td class="amount negative">-€127,50</td>
+                                <td class="amount">€42,50</td>
+                                <td>1,0%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-vervoer">🚗 Vervoer</span></td>
+                                <td>2</td>
+                                <td class="amount negative">-€7,20</td>
+                                <td class="amount">€3,60</td>
+                                <td>0,1%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Insights Tab -->
+            <div id="insights" class="tab-content">
+                <div class="insights">
+                    <h3>💡 Financiële Inzichten & Aanbevelingen</h3>
+                    
+                    <div class="insight-item">
+                        <h4>🎯 Liquiditeitsbeheer</h4>
+                        <p><strong>Huidige situatie:</strong> ABN AMRO Privé heeft een kritiek laag saldo van €154,31 terwijl ING Zakelijk een sterke cashflow toont.</p>
+                        <p><strong>Aanbeveling:</strong> Transfereer €2.000-€3.000 van zakelijk naar privé om een buffer te creëren voor maandelijkse uitgaven.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>📈 Investeringsstrategie</h4>
+                        <p><strong>Positief punt:</strong> Consistente maandelijkse beleggingen van €2.500 tonen goede discipline.</p>
+                        <p><strong>Aanbeveling:</strong> Overweeg de beleggingsfrequentie te verhogen naar €3.000-€3.500 per maand gezien de sterke zakelijke inkomsten.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>💼 Zakelijke Cashflow</h4>
+                        <p><strong>Sterke punt:</strong> TenneT project genereerde €20.812 in juli - uitstekende projectomzet.</p>
+                        <p><strong>Aanbeveling:</strong> Reserveer 25-30% van grote projectinkomsten voor belastingen en zakelijke reserves.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>🏛️ Belastingplanning</h4>
+                        <p><strong>Aandachtspunt:</strong> Mei toonde hoge belastingbetalingen (€7.837). Plan voor Q2 2025 betalingen.</p>
+                        <p><strong>Aanbeveling:</strong> Zet maandelijks €2.000-€2.500 opzij voor toekomstige belastingverplichtingen.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>📊 Uitgavenpatroon</h4>
+                        <p><strong>Observatie:</strong> Lage variabele uitgaven (boodschappen €127,50, vervoer €7,20) wijzen op gedisciplineerd uitgavenpatroon.</p>
+                        <p><strong>Aanbeveling:</strong> Budgetteer een kleine "lifestyle" post voor ontspanning en onverwachte uitgaven.</p>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">🎯 Concrete Actieplan</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Prioriteit</th>
+                                <th>Actie</th>
+                                <th>Bedrag</th>
+                                <th>Deadline</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span style="color: #e74c3c; font-weight: bold;">HOOG</span></td>
+                                <td>Transfer zakelijk → privé voor liquiditeit</td>
+                                <td>€2.500</td>
+                                <td>Deze week</td>
+                                <td>⏳ Te doen</td>
+                            </tr>
+                            <tr>
+                                <td><span style="color: #f39c12; font-weight: bold;">MIDDEL</span></td>
+                                <td>Belastingreserve aanleggen</td>
+                                <td>€2.000/maand</td>
+                                <td>Augustus</td>
+                                <td>⏳ Te doen</td>
+                            </tr>
+                            <tr>
+                                <td><span style="color: #27ae60; font-weight: bold;">LAAG</span></td>
+                                <td>Beleggingen verhogen</td>
+                                <td>€3.000/maand</td>
+                                <td>September</td>
+                                <td>💭 Overweging</td>
+                            </tr>
+                            <tr>
+                                <td><span style="color: #3498db; font-weight: bold;">INFO</span></td>
+                                <td>Kwartaalreview plannen</td>
+                                <td>-</td>
+                                <td>Eind augustus</td>
+                                <td>📅 Gepland</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings" class="tab-content">
+                <div class="category-management">
+                    <h3>⚙️ Dashboard Instellingen</h3>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <h4>📋 Airtable Configuratie</h4>
+                        <p style="margin-bottom: 15px;">Structuur voor automatische analyse-herhaling:</p>
+                        
+                        <div class="table-container">
+                            <div class="table-header">Airtable Tabellen Structuur</div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tabel</th>
+                                        <th>Primaire Velden</th>
+                                        <th>Doel</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Transactions</strong></td>
+                                        <td>Date, Description, Amount, Category, Account</td>
+                                        <td>Alle transactiedata centraal opslaan</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Categories</strong></td>
+                                        <td>Category Name, Color, Icon, Budget Limit</td>
+                                        <td>Categorie-instellingen beheren</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Monthly Summary</strong></td>
+                                        <td>Month, Account, Total Income, Total Expenses</td>
+                                        <td>Maandelijkse samenvattingen automatiseren</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Insights</strong></td>
+                                        <td>Date, Insight Type, Description, Action Required</td>
+                                        <td>Financiële inzichten tracken</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <h4>🔄 Automatisering Opties</h4>
+                        <div class="insight-item">
+                            <h4>Bank API Integratie</h4>
+                            <p>Overweeg PSD2 Open Banking voor automatische transactie-import via ING en ABN AMRO API's.</p>
+                        </div>
+                        
+                        <div class="insight-item">
+                            <h4>Categorisatie Rules</h4>
+                            <p>Implementeer regelgebaseerde categorisatie op basis van beschrijvingstekst en bedragen.</p>
+                        </div>
+                        
+                        <div class="insight-item">
+                            <h4>Alert Systeem</h4>
+                            <p>Stel waarschuwingen in voor lage saldi, ongewone uitgaven en belastingdeadlines.</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4>📁 Export Formaten</h4>
+                        <p>Beschikbare export opties voor verdere analyse:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>CSV voor Excel/Google Sheets</li>
+                            <li>JSON voor data-analyse tools</li>
+                            <li>PDF rapport voor archivering</li>
+                            <li>Airtable-ready format</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+        
+        // Export functionality
+        function exportToCSV() {
+            const csvData = generateCSVData();
+            downloadCSV(csvData, 'financieel_overzicht_juli_2025.csv');
+        }
+        
+        function generateCSVData() {
+            const transactions = [
+                ['Datum', 'Rekening', 'Beschrijving', 'Categorie', 'Bedrag'],
+                ['2025-07-03', 'ING Zakelijk', 'Magnit Global - TenneT Project', 'Omzet', '20812.00'],
+                ['2025-07-11', 'ING Zakelijk', 'RM Wouters - Maandelijkse betaling', 'Inkomsten', '250.00'],
+                ['2025-07-11', 'ING Zakelijk', 'Naar Beleggingsrekening', 'Investering', '-2500.00'],
+                ['2025-07-15', 'ABN AMRO Privé', 'Belastingdienst - Maanduitkering', 'Inkomsten', '315.00'],
+                ['2025-07-15', 'ING Zakelijk', 'Q.J. Hernandez Ortiz - Privé leening', 'Privé Transfer', '-300.00'],
+                ['2025-07-18', 'ING Zakelijk', 'Vodafone Libertel', 'Telecom', '-300.62'],
+                ['2025-07-19', 'ING Zakelijk', 'M.A. Butzelaar - Pensioensparen', 'Pensioen', '-250.00']
+            ];
+            
+            return transactions.map(row => row.join(',')).join('\n');
+        }
+        
+        function downloadCSV(csvData, filename) {
+            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+        
+        function showAirtableStructure() {
+            alert(`Airtable Structuur voor Familie Hernandez Ortiz:
+
+📊 TRANSACTIONS TABLE
+- Date (Date field)
+- Description (Single line text)
+- Amount (Currency - EUR)
+- Category (Single select)
+- Subcategory (Single select)
+- Account (Single select: ABN AMRO Privé, ING Zakelijk)
+- Transaction Type (Single select: Income, Expense, Transfer)
+- Notes (Long text)
+
+📂 CATEGORIES TABLE  
+- Category Name (Single line text)
+- Color (Single line text)
+- Icon (Single line text)
+- Budget Limit (Currency - EUR)
+- Type (Single select: Income, Fixed, Variable, Investment)
+
+📈 MONTHLY SUMMARY TABLE
+- Month (Date field)
+- Account (Single select)
+- Total Income (Currency - EUR)
+- Total Expenses (Currency - EUR)
+- Net Amount (Currency - EUR)
+- Status (Single select)
+
+Deze structuur zorgt voor eenvoudige herhaling van analyses!`);
+        }
+        
+        function generateReport() {
+            alert(`📄 FINANCIEEL RAPPORT - JULI 2025
+Familie Hernandez Ortiz
+
+SAMENVATTING:
+• Totale inkomsten: €25.167,60
+• Totale uitgaven: €12.435,00
+• Netto resultaat: +€12.732,60
+
+BELANGRIJKSTE BEVINDINGEN:
+✅ Sterke zakelijke cashflow door TenneT project
+⚠️ Privé rekening heeft liquiditeitsprobleem
+📈 Goede beleggingsdiscipline met €2.750/maand
+
+AANBEVELINGEN:
+1. Direct €2.500 overboeken zakelijk → privé
+2. Maandelijks €2.000 reserveren voor belastingen
+3. Overwegen beleggingen te verhogen naar €3.000
+
+Rapport gegenereerd op ${new Date().toLocaleDateString('nl-NL')}`);
+        }
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate cards on load
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+        });
+    </script>
+</body>
+</html>
