@@ -344,14 +344,17 @@
       { main:'Overboekingen & Transfers', sub:'P2P / Betaalverzoek', any:["tikkie","betaalverzoek","bunq.me","revolut","splitwise"] },
       { main:'Overboekingen & Transfers', sub:'Creditcard betaling', any:["ics","international card services","visa","mastercard","amex","american express","creditcard","credit card"] },
       { main:'Overboekingen & Transfers', sub:'Interne overboeking', any:["eigen rekening","interne overboeking","interne overb","tussenrekening","spaarrekening"] },
+      { main:'Overboekingen & Transfers', sub:'Lening / Loan', any:["lening","prive lening","privelening","loan"] },
+      { main:'Overboekingen & Transfers', sub:'Terugbetaling / Voorgeschoten', any:["voorgeschoten","vakantiepot","retour vakantiepot","terugbetaling"] },
+      { main:'Overboekingen & Transfers', sub:'Zakgeld / Kidsrekening', any:["zakgeld","kidsrekening"] },
       // 1. Wonen (Housing)
   { main:'Wonen', sub:'Huur/Hypotheek', any:["hypotheek","rente","huur","woningcorporatie","vve","vereniging van eigenaars"], dir:'out' },
-      { main:'Wonen', sub:'Nutsvoorzieningen - Gas & Licht', any:["engie","vattenfall","essent","greenchoice","budget energie","energie","eneco","oxxio","vandebron","pure energie"] },
+  { main:'Wonen', sub:'Nutsvoorzieningen - Gas & Licht', any:["engie","vattenfall","tibber","essent","greenchoice","budget energie","energie","eneco","oxxio","vandebron","pure energie"] },
       { main:'Wonen', sub:'Nutsvoorzieningen - Water', any:["waternet","vitens","pwn","dunea","brabant water","evides","wml","waterbedrijf"] },
       { main:'Wonen', sub:'Nutsvoorzieningen - Internet/TV', any:["kpn","ziggo","xs4all","t-mobile","odido","tele2","youfone","delta","caiway","freedom internet","internet","tv","televisie"] },
       // Place Auto insurance/tax before generic insurance to avoid misclass
       { main:'Vervoer', sub:'Auto - Verzekering/Belasting', any:["wegenbelasting","motorrijtuigenbelasting","apk","autoverzekering","auto verzekering","rdw"] },
-      { main:'Wonen', sub:'Onderhoud & Verzekeringen', any:["woonverzekering","inboedel","opstal","verzekering","onderhoud","reparatie","schilder","klussenbedrijf","interpolis","unive","fbto","ohra","asr","nn ","aegon","allianz"] },
+  { main:'Wonen', sub:'Onderhoud & Verzekeringen', any:["woonverzekering","inboedel","opstal","verzekering","onderhoud","reparatie","schilder","klussenbedrijf","assuradeuren","veldhuis","interpolis","unive","fbto","ohra","asr","nn ","aegon","allianz"] },
 
       // 2. Voedsel & Dranken
   { main:'Voedsel & Dranken', sub:'Boodschappen - Supermarkt', any:["albert heijn","ah ","jumbo","lidl","aldi","plus ","coop","spar","dirk","vomar","picnic","hoogvliet","deka","dekamarkt","jan linders","poiesz","boni","nettorama"] },
@@ -370,7 +373,7 @@
       { main:'Kleding & Schoenen', sub:'Kleding & Schoenen', any:["h&m","zara","c&a","wehkamp","zalando","bijenkorf","v&d","primark","kleding","schoenen","mode","fashion"] },
 
       // 5. Gezondheid & Zorg
-  { main:'Gezondheid & Zorg', sub:'Zorgverzekering', any:["zilveren kruis","cz "," vgz ","menzis","zorg en zekerheid","unive","fbto","ohra","ditzo","nn ","a.s.r","zorgverzekering"] },
+  { main:'Gezondheid & Zorg', sub:'Zorgverzekering', any:["zilveren kruis","cz "," vgz ","menzis","zorg en zekerheid","unive","fbto","ohra","ditzo","nn ","a.s.r","zorgverzekering","vinkvink"] },
       { main:'Gezondheid & Zorg', sub:'Medische Kosten', any:["apotheek","huisarts","tandarts","fysio","fysiotherapeut","specialist","ziekenhuis","medicijnen","behandeling","consult"] },
 
       // 6. Onderwijs & Kinderen
@@ -391,14 +394,14 @@
       // 9. Overige Goederen & Diensten
   { main:'Overige Goederen & Diensten', sub:'Persoonlijke Verzorging', any:["kapper","schoonheidssalon","drogist","cosmetica"] },
   { main:'Overige Goederen & Diensten', sub:'Huishoudelijke Artikelen', any:["ikea","blokker","xenos","sostrene grene","sostrene","flying tiger","gamma","karwei","praxis","hema","bol.com","coolblue"] },
-  { main:'Overige Goederen & Diensten', sub:'Financiële Diensten', any:["bankkosten","advieskosten","belegging","broker","degiro","saxo","binck","peaks","meesman","brand new day","transaction fee","servicefee","service fee","paypal"] },
+  { main:'Overige Goederen & Diensten', sub:'Financiële Diensten', any:["bankkosten","basispakket","abn amro","advieskosten","belegging","broker","degiro","saxo","binck","peaks","meesman","brand new day","transaction fee","servicefee","service fee","paypal"] },
   // Income-specific granular rules (dir: 'in' ensures only positive amounts match)
-  { main:'Inkomen', sub:'Salaris', any:["salaris","loon","payroll"], dir:'in' },
+  { main:'Inkomen', sub:'Salaris', any:["salaris","loon","payroll","hernandez ortiz b.v."], dir:'in' },
   { main:'Inkomen', sub:'Uitkering/Toeslag', any:["uwv","uitkering","toeslag","kinderbijslag"], dir:'in' },
   { main:'Inkomen', sub:'Pensioen', any:["pensioen","abp","pfzw","pensioenfonds","bpf","pmte"], dir:'in' },
   { main:'Inkomen', sub:'Rente & Dividend', any:["rente","dividend","coupon","rentebijschrijving","spaarrente","rentevergoeding"], dir:'in' },
   { main:'Inkomen', sub:'Belasting Teruggave', any:["belastingdienst","teruggave","aangifte","inkomstenbelasting","btw-teruggave","toeslagen"], dir:'in' },
-  { main:'Inkomen', sub:'Huishoudbijdrage', any:["huishouding","maandbijdrage","maand bijdrage"], dir:'in' },
+  { main:'Inkomen', sub:'Huishoudbijdrage', any:["huishouden","huishouding","maandbijdrage","maand bijdrage","kidsrekening","kidsrekening maandbijdrage"], dir:'in' },
   { main:'Inkomen', sub:'Huurinkomsten', any:["huur"], dir:'in' },
   // Government and taxes (expenses only)
   { main:'Overheid & Belastingen', sub:'Belastingen & Heffingen', any:["belastingdienst","toeslagen","omzetbelasting","btw","cjib","boete","leges","gemeente"], dir:'out' },
@@ -426,13 +429,14 @@
       }
       // 3) Quick disambiguation: internet/tv
       if (/(internet|tv|televisie)/.test(desc)) return { main:'Wonen', sub:'Nutsvoorzieningen - Internet/TV', source:'Regel', detail:'internet/tv' };
-      // 4) Keyword rules
+      // 4) Keyword rules (match on combined SEPA+description text for better accuracy)
+      const haystack = _sepa && _sepa.text ? _sepa.text : desc;
       for (const rule of cbsRules){
         if (!rule.any) continue;
     // Respect direction if provided: 'in' -> positive amounts, 'out' -> negative amounts
     if (rule.dir === 'in' && !(amt >= 0)) continue;
     if (rule.dir === 'out' && !(amt < 0)) continue;
-    const hit = rule.any.find(k => desc.includes(k));
+    const hit = rule.any.find(k => haystack.includes(k));
     if (hit) return { main: rule.main, sub: rule.sub, source: 'Regel', detail: `keyword "${hit}"` };
       }
       // 4b) If positive amount and no rule matched, classify as Income by default
