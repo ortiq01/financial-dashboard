@@ -45,6 +45,18 @@
     .insight { border-left:4px solid #2563eb; padding-left:12px; margin:10px 0; }
   .row-click { cursor:pointer; }
   .row-active { background:#eef2ff; }
+  /* Filter pill */
+  .filter-pill { display:inline-flex; align-items:center; gap:6px; background:#e5f0ff; color:#1e40af; padding:6px 10px; border-radius:999px; font-size:.85rem; }
+  .filter-pill .clear { cursor:pointer; color:#1f2937; margin-left:6px; font-weight:700; }
+  /* Modal */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .modal { background:#fff; width:min(560px, 92vw); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.2); padding:16px; }
+  .modal h3 { margin:0 0 12px; }
+  .modal .row { display:flex; gap:12px; }
+  .modal label { display:block; font-size:.9rem; color:#374151; margin-bottom:6px; }
+  .modal input[type="text"], .modal select { width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb; }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  .show { display:flex !important; }
     @media (max-width: 720px){ .row { flex-direction:column; } }
   </style>
   <meta name="robots" content="noindex" />
@@ -135,13 +147,45 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="transactionsSection">
     <h3 class="section-title">Recentste Transacties</h3>
+      <div id="txFilterBar" class="toolbar" style="margin-bottom:8px;"></div>
       <div style="overflow:auto">
         <table>
       <thead id="txHead"></thead>
           <tbody id="txBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Category Modal -->
+  <div id="editModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <div class="modal">
+      <h3 id="editTitle">Categorie wijzigen</h3>
+      <div class="row">
+        <div style="flex:1">
+          <label>Beschrijving</label>
+          <div id="editDesc" class="kbd" style="white-space:pre-wrap"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div style="flex:1">
+          <label>Hoofdcategorie</label>
+          <select id="editMain"></select>
+        </div>
+        <div style="flex:1">
+          <label>Subcategorie</label>
+          <input id="editSub" type="text" placeholder="bijv. Boodschappen - Supermarkt" />
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label><input type="checkbox" id="editApplyKeyword" /> Regel toepassen op trefwoord</label>
+        <input id="editKeyword" type="text" class="kbd" placeholder="trefwoord (bijv. 'ah ' of 'vodafone')" style="margin-left:8px; padding:6px 8px;" />
+      </div>
+      <div class="actions">
+        <button id="editCancel" class="btn ghost">Annuleren</button>
+        <button id="editSave" class="btn">Opslaan</button>
       </div>
     </div>
   </div>
@@ -154,6 +198,8 @@
     const dataUrl = qs.get('data') || defaultUrl;
     const el = (id) => document.getElementById(id);
     let lastData = { headers: [], allRows: [], sum: null };
+    let selectedCategory = null; // active category filter (CBS main)
+    let currentEditKey = null; // currently edited transaction key
 
     function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
     function parseTable(text){ const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=lines[0].split(d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>l.split(d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } return { headers, rows }; }
@@ -209,6 +255,14 @@
 
     // --- CBS categorization rules ---
     function normalize(s){ return (s||'').toString().toLowerCase(); }
+    // --- Local overrides (persisted in localStorage) ---
+    const OV_KEY = 'cbsCategoryOverrides';
+    function getOverrides(){ try{ const raw=localStorage.getItem(OV_KEY); if(!raw) return {byKey:{}, byKeyword:[]}; const o=JSON.parse(raw); return { byKey: o.byKey||{}, byKeyword: Array.isArray(o.byKeyword)?o.byKeyword:[] }; }catch{ return {byKey:{}, byKeyword:[]}; } }
+    function saveOverrides(o){ localStorage.setItem(OV_KEY, JSON.stringify(o)); }
+    function txnKey(row, cols){ const d = cols.date>=0 ? (row[cols.date]||'') : ''; const a = cols.amount>=0 ? toNumber(row[cols.amount]).toFixed(2) : '0.00'; const desc = cols.description>=0 ? normalize(row[cols.description]) : ''; const acc = cols.account>=0 ? (row[cols.account]||'') : ''; return [d,a,desc,acc].join('|'); }
+    function applyOverrides(row, cols, desc){ const ov=getOverrides(); const key=txnKey(row, cols); if(ov.byKey[key]) return { main: ov.byKey[key].main, sub: ov.byKey[key].sub };
+      if(desc){ for(const rule of ov.byKeyword){ if(desc.includes(rule.keyword)) return { main: rule.main, sub: rule.sub }; } }
+      return null; }
     const cbsRules = [
       // 1. Wonen (Housing)
       { main:'Wonen', sub:'Huur/Hypotheek', any:["hypotheek","rente","huur","woningcorporatie"] },
@@ -259,6 +313,9 @@
     ];
     function categorizeCBS(row, cols){
       const desc = normalize(cols.description>=0 ? row[cols.description] : '');
+      // overrides first
+      const ovr = applyOverrides(row, cols, desc);
+      if (ovr) return ovr;
       // quick disambiguation: if contains internet/tv terms, map to utilities internet/tv explicitly
       if (/(internet|tv|televisie)/.test(desc)) return { main:'Wonen', sub:'Nutsvoorzieningen - Internet/TV' };
       for (const rule of cbsRules){
@@ -325,23 +382,33 @@
 
     function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
-    function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; return; } const totalNeg=entries.reduce((a,[,v])=>a+(v.sum<0?Math.abs(v.sum):0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum)).map(([cat,v])=>{ const count=v.count||0; const avg=count>0?Math.abs(v.sum)/count:0; const pct=v.sum<0?(Math.abs(v.sum)/denom)*100:0; return `<tr><td><span class="category-tag">${cat}</span></td><td>${count}</td><td class="amount ${v.sum>=0?'pos':'neg'}">${euro.format(v.sum)}</td><td class="amount">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; }
+  function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; return; } const totalNeg=entries.reduce((a,[,v])=>a+(v.sum<0?Math.abs(v.sum):0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum)).map(([cat,v])=>{ const count=v.count||0; const avg=count>0?Math.abs(v.sum)/count:0; const pct=v.sum<0?(Math.abs(v.sum)/denom)*100:0; const active = (selectedCategory && selectedCategory===cat) ? ' row-active' : ''; return `<tr class="row-click${active}" data-cat="${cat}"><td><span class="category-tag">${cat}</span></td><td>${count}</td><td class="amount ${v.sum>=0?'pos':'neg'}">${euro.format(v.sum)}</td><td class="amount">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const cat=tr.getAttribute('data-cat'); setCategoryFilter(cat); }); }); }
     function renderAccounts(perAccount){ const tbody=el('acctBody'); const rows=perAccount.map(a=>`<tr><td>${a.account}</td><td class="amount pos">${euro.format(a.income)}</td><td class="amount neg">${euro.format(Math.abs(a.expenses))}</td><td class="amount ${a.net>=0?'pos':'neg'}">${(a.net>=0?'+':'')+euro.format(a.net)}</td></tr>`).join(''); tbody.innerHTML=rows||'<tr><td colspan="4">Geen data</td></tr>'; }
     function renderTransactions(headers, rows, cols){
+      // Apply category filter if active
+      let txRows = rows;
+      if (selectedCategory){ txRows = rows.filter(r=>{ const c=categorizeCBS(r, cols); return c.main===selectedCategory; }); }
       const showIdx=[cols.date, cols.description, cols.category, cols.amount].filter(i=>i>=0);
       const displayHeaders=(function(){ const colCount=rows[0]?.length || headers.length || 0; let d=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<d.length) d[cols.date]='Datum'; if (cols.description>=0 && cols.description<d.length) d[cols.description]='Beschrijving'; if (cols.category>=0 && cols.category<d.length) d[cols.category]='Categorie (Bron)'; if (cols.amount>=0 && cols.amount<d.length) d[cols.amount]='Bedrag'; if (cols.account>=0 && cols.account<d.length) d[cols.account]='Rekening'; return d; })();
       // Add CBS columns
-      el('txHead').innerHTML = `<tr>${showIdx.map(i=>`<th>${displayHeaders[i]||'Col'}</th>`).join('')}<th>CBS Hoofdcategorie</th><th>CBS Subcategorie</th></tr>`;
+      el('txHead').innerHTML = `<tr>${showIdx.map(i=>`<th>${displayHeaders[i]||'Col'}</th>`).join('')}<th>CBS Hoofdcategorie</th><th>CBS Subcategorie</th><th>Acties</th></tr>`;
       const max=50;
-      const bodyRows = rows.slice(-max).reverse().map(r=>{
+      const limited = txRows.slice(-max).reverse();
+      const bodyRows = limited.map(r=>{
         const cbs = categorizeCBS(r, cols);
+        const key = txnKey(r, cols);
         const tds=showIdx.map(i=>{
           if(i===cols.amount){ const val=toNumber(r[i]); return `<td class="amount ${val>=0?'pos':'neg'}">${euro.format(val)}</td>`; }
           return `<td>${r[i]||''}</td>`;
         }).join('');
-        return `<tr>${tds}<td>${cbs.main}</td><td>${cbs.sub}</td></tr>`;
+        return `<tr data-key="${key}">${tds}<td>${cbs.main}</td><td>${cbs.sub}</td><td><button class="btn ghost edit-btn" data-key="${key}">Wijzig</button></td></tr>`;
       }).join('');
-      el('txBody').innerHTML = bodyRows || '<tr><td colspan="6">Geen transacties</td></tr>';
+      el('txBody').innerHTML = bodyRows || '<tr><td colspan="7">Geen transacties</td></tr>';
+      // Wire edit buttons
+      Array.from(el('txBody').querySelectorAll('.edit-btn')).forEach(btn=>{
+        btn.addEventListener('click', (e)=>{ const key=e.currentTarget.getAttribute('data-key'); openEditModalForKey(key); });
+      });
+      renderTxFilterBar();
     }
 
     function buildDisplayHeaders(headers, cols){ const colCount=lastData.sum?.filtered?.[0]?.length || headers.length || 0; let display=headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<display.length) display[cols.date]='Date'; if (cols.account>=0 && cols.account<display.length) display[cols.account]='Account'; if (cols.description>=0 && cols.description<display.length) display[cols.description]='Description'; if (cols.category>=0 && cols.category<display.length) display[cols.category]='Category'; if (cols.amount>=0 && cols.amount<display.length) display[cols.amount]='Amount'; return display; }
@@ -384,6 +451,30 @@
       return insights;
     }
 
+    // Helpers: recompute and render without refetch
+    function recomputeAndRender(){ if(!lastData || !lastData.allRows) return; const { headers, allRows } = lastData; const sum = summarize(headers, allRows); lastData.sum = sum; const perAccount = computePerAccount(sum); const history = computeHistoryByMonth(allRows, sum.cols, sum.months, getActiveAccounts(sum.accounts||[])); updateHeader(sum); renderKPIs(sum); renderCategories(sum); renderAccounts(perAccount); renderMonthlyBreakdown(history, sum.selected); renderTransactions(headers, sum.filtered, sum.cols); const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join(''); el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>'; }
+
+    function setCategoryFilter(cat){ selectedCategory = cat; recomputeAndRender(); const sec=document.getElementById('transactionsSection'); if(sec) sec.scrollIntoView({ behavior:'smooth', block:'start' }); }
+    function clearCategoryFilter(){ selectedCategory = null; recomputeAndRender(); }
+
+    function renderTxFilterBar(){ const bar = el('txFilterBar'); if(!bar) return; if(selectedCategory){ bar.innerHTML = `<span class="filter-pill">Filter: ${selectedCategory} <span class="clear" title="Wis filter">×</span></span>`; bar.querySelector('.clear').addEventListener('click', clearCategoryFilter); } else { bar.innerHTML=''; } }
+
+    function getAllMains(){ const set=new Set(Object.keys(budgetRanges)); cbsRules.forEach(r=>set.add(r.main)); return Array.from(set); }
+
+    function openEditModalForKey(key){ currentEditKey = key; const rows = lastData?.allRows || []; const cols = lastData?.sum?.cols || {}; const row = rows.find(r=> txnKey(r, cols) === key); if(!row){ alert('Transactie niet gevonden'); return; } const desc = cols.description>=0 ? (row[cols.description]||'') : ''; const cbs = categorizeCBS(row, cols); // pre-fill
+      // fill selects
+      const mainSel = el('editMain'); mainSel.innerHTML = getAllMains().map(m=>`<option value="${m}">${m}</option>`).join(''); mainSel.value = cbs.main;
+      el('editSub').value = cbs.sub || '';
+      el('editDesc').textContent = desc;
+      el('editApplyKeyword').checked = false; el('editKeyword').value='';
+      el('editModal').classList.add('show');
+    }
+
+    function closeEditModal(){ el('editModal').classList.remove('show'); currentEditKey=null; }
+
+    function persistEdit(){ const cols = lastData?.sum?.cols || {}; const rows = lastData?.allRows || []; if(!currentEditKey){ closeEditModal(); return; } const row = rows.find(r=> txnKey(r, cols) === currentEditKey); if(!row){ closeEditModal(); return; } const main = el('editMain').value || 'Overige Goederen & Diensten'; const sub = el('editSub').value || 'Overig'; const applyByKeyword = el('editApplyKeyword').checked; const keywordRaw = el('editKeyword').value.trim(); const ov = getOverrides(); if(applyByKeyword){ if(!keywordRaw){ alert('Vul een trefwoord in of kies "alleen deze transactie".'); return; } ov.byKeyword.push({ keyword: normalize(keywordRaw), main, sub }); } else { ov.byKey[currentEditKey] = { main, sub }; }
+      saveOverrides(ov); closeEditModal(); recomputeAndRender(); }
+
     async function load(url){
       try{
         el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
@@ -401,8 +492,8 @@
         updateHeader(sum);
         renderKPIs(sum);
         renderCategories(sum);
-  renderAccounts(perAccount);
-  renderMonthlyBreakdown(history, sum.selected);
+        renderAccounts(perAccount);
+        renderMonthlyBreakdown(history, sum.selected);
         renderTransactions(headers, sum.filtered, sum.cols);
         const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join('');
         el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>';
@@ -422,6 +513,11 @@
       el('monthSelect').addEventListener('change', ()=>load(el('sourcePath').textContent));
       el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
       el('exportCatBtn').addEventListener('click', exportCategoriesCSV);
+      // modal buttons
+      el('editCancel').addEventListener('click', closeEditModal);
+      el('editSave').addEventListener('click', persistEdit);
+      // close modal on overlay click
+      el('editModal').addEventListener('click', (e)=>{ if(e.target===el('editModal')) closeEditModal(); });
     });
   </script>
 </body>
