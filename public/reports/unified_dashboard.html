@@ -48,6 +48,10 @@
   /* Filter pill */
   .filter-pill { display:inline-flex; align-items:center; gap:6px; background:#e5f0ff; color:#1e40af; padding:6px 10px; border-radius:999px; font-size:.85rem; }
   .filter-pill .clear { cursor:pointer; color:#1f2937; margin-left:6px; font-weight:700; }
+  .menu { position: relative; display:inline-block; }
+  .menu-dropdown { position:absolute; right:0; top:40px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; min-width:200px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:2000; }
+  .menu-dropdown a { display:block; padding:8px 12px; color:#111827; text-decoration:none; }
+  .menu-dropdown a:hover { background:#f3f4f6; }
   /* Modal */
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:1000; }
   .modal { background:#fff; width:min(560px, 92vw); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.2); padding:16px; }
@@ -85,6 +89,15 @@
         <span class="muted">Bron:</span>
         <span id="sourcePath" class="kbd">/data/latest.tab</span>
         <button id="reloadBtn" class="btn ghost">Reload</button>
+        <div class="menu" style="margin-left:8px;">
+          <button id="helpMenuBtn" class="btn ghost" title="Meer opties">☰</button>
+          <div id="helpMenu" class="menu-dropdown" style="display:none">
+            <a href="#" id="resetFiltersLink">Reset filters</a>
+            <a href="#" id="openRulesLink">Open Beheer regels</a>
+            <a href="/reports/index.html">Rapporten index</a>
+            <a href="#" id="aboutLink">Over deze pagina</a>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -220,13 +233,16 @@
     // Utilities and parsing
     const euro = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
     const qs = new URLSearchParams(location.search);
-    const defaultUrl = '/data/latest.tab';
-    const dataUrl = qs.get('data') || defaultUrl;
+  const defaultUrl = '/data/latest.tab';
+  const dataUrl = qs.get('data') || defaultUrl;
+  const qsMonth = qs.get('month') || null;
+  const qsCategory = qs.get('category') || null;
+  const qsAccounts = qs.get('accounts') || null; // pipe-separated
     const el = (id) => document.getElementById(id);
     let lastData = { headers: [], allRows: [], sum: null };
   // Shared household: disable savings-related insights by default; enable with ?savings=on
   const disableSavings = (qs.get('savings') !== 'on');
-    let selectedCategory = null; // active category filter (CBS main)
+  let selectedCategory = qsCategory || null; // active category filter (CBS main)
     let currentEditKey = null; // currently edited transaction key
 
     function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
@@ -521,7 +537,8 @@
     function removeKeyRule(k){ const ov=getOverrides(); if(ov.byKey && ov.byKey[k]){ delete ov.byKey[k]; saveOverrides(ov); renderRulesLists(); recomputeAndRender(); } }
     function clearAllOverrides(){ if(!confirm('Weet je zeker dat je alle regels wilt wissen?')) return; saveOverrides({byKey:{}, byKeyword:[]}); renderRulesLists(); recomputeAndRender(); }
 
-    async function load(url){
+  let _appliedMonthParam = false;
+  async function load(url){
       try{
         el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
         const bust = (url.includes('?')?'&':'?') + '_ts=' + Date.now();
@@ -544,6 +561,17 @@
         const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join('');
         el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>';
 
+        // Apply deep-link month param once if valid
+        if (qsMonth && !_appliedMonthParam){
+          if (sum.months && sum.months.includes(qsMonth)){
+            el('monthSelect').value = qsMonth;
+            _appliedMonthParam = true;
+            recomputeAndRender();
+          } else {
+            _appliedMonthParam = true; // avoid loops even if invalid
+          }
+        }
+
         el('dataStatus').textContent='OK';
       } catch(e){
         el('dataStatus').textContent='error';
@@ -553,6 +581,11 @@
 
     // Wire
     document.addEventListener('DOMContentLoaded', function(){
+      // Pre-apply accounts filter from query param
+      if (qsAccounts){
+        const list = qsAccounts.split('|').map(s=>s.trim()).filter(Boolean);
+        if (list.length){ renderAccountChips._state = new Set(list); }
+      }
       load(dataUrl);
       el('reloadBtn').addEventListener('click', ()=>load(el('sourcePath').textContent));
       el('loadBtn').addEventListener('click', ()=>{ const u=el('customUrl').value.trim(); if(u) load(u); });
@@ -569,6 +602,43 @@
   el('rulesClose').addEventListener('click', closeRulesModal);
   el('rulesModal').addEventListener('click', (e)=>{ if(e.target===el('rulesModal')) closeRulesModal(); });
   el('rulesClear').addEventListener('click', clearAllOverrides);
+      // Help menu wiring
+      const helpMenuBtn = document.getElementById('helpMenuBtn');
+      const helpMenu = document.getElementById('helpMenu');
+      if (helpMenuBtn && helpMenu){
+        helpMenuBtn.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          helpMenu.style.display = helpMenu.style.display === 'none' ? 'block' : 'none';
+        });
+        document.addEventListener('click', (e)=>{
+          if (!helpMenu.contains(e.target) && e.target !== helpMenuBtn){ helpMenu.style.display = 'none'; }
+        });
+        document.getElementById('resetFiltersLink').addEventListener('click', (e)=>{
+          e.preventDefault();
+          // Reset month
+          const ms = document.getElementById('monthSelect'); if (ms){ ms.value = 'all'; }
+          // Reset accounts: remove specific selection so next render selects all
+          renderAccountChips._state = null;
+          // Clear category filter
+          selectedCategory = null;
+          // Clear deep-link params including savings
+          const url = new URL(window.location.href);
+          ['month','category','accounts','savings'].forEach(p=>url.searchParams.delete(p));
+          window.history.replaceState({}, '', url.toString());
+          recomputeAndRender();
+          helpMenu.style.display = 'none';
+        });
+        document.getElementById('openRulesLink').addEventListener('click', (e)=>{
+          e.preventDefault();
+          openRulesModal();
+          helpMenu.style.display = 'none';
+        });
+        document.getElementById('aboutLink').addEventListener('click', (e)=>{
+          e.preventDefault();
+          alert('Unified Dashboard\n- Diepe koppelingen: data, month, category, accounts, savings\n- Pas categorieën aan via ⚙️ Beheer regels of Wijzig-knoppen.');
+          helpMenu.style.display = 'none';
+        });
+      }
     });
   </script>
 </body>
