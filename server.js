@@ -15,8 +15,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'financial-dashboard', ts: new Date().toISOString() });
 });
 
-// Root route: by default redirect to a default report, but allow disabling
-const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/dynamic_financial_dashboard.html';
+// Root route: by default redirect to unified dashboard, but allow disabling
+const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/unified_dashboard.html';
 const DISABLE_ROOT_REDIRECT = process.env.DISABLE_ROOT_REDIRECT === '1';
 
 app.get('/', (req, res) => {
@@ -33,6 +33,19 @@ app.get('/', (req, res) => {
 app.get('/status', (req, res) => {
   res.type('text/plain').send('financial-dashboard: ok');
 });
+
+// Redirect legacy report paths to unified dashboard, preserving query string
+const legacyReports = [
+  '/reports/dynamic_financial_dashboard.html',
+  '/reports/enhanced_financial_dashboard.html',
+  '/reports/enhanced_financial_dashboard_v12.html',
+  '/reports/financial_analysis_report.html',
+  '/reports/fixed_financial_dashboard.html'
+];
+legacyReports.forEach(p => app.get(p, (req, res) => {
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(302, '/reports/unified_dashboard.html' + qs);
+}));
 
 app.listen(port, () => {
   console.log('financial-dashboard listening on :' + port);
