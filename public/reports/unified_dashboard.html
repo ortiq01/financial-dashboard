@@ -126,10 +126,10 @@
     </div>
 
     <div class="card">
-      <h3 class="section-title">Maandelijkse Samenvatting</h3>
+    <h3 class="section-title">Maandelijkse Samenvatting</h3>
       <div style="overflow:auto">
         <table>
-          <thead><tr><th>Maand</th><th>Inkomsten</th><th>Uitgaven</th><th>Netto</th></tr></thead>
+      <thead><tr><th>Maand</th><th>Inkomsten</th><th>Uitgaven</th><th>Netto</th><th>Δ Netto (vs vorige maand)</th></tr></thead>
           <tbody id="monthBody"></tbody>
         </table>
       </div>
@@ -321,7 +321,7 @@
   function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
   function computeHistoryByMonth(allRows, cols, months, activeAccounts){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0})); allRows.forEach(r=>{ if(activeAccounts && cols.account>=0 && activeAccounts.size>0){ const acc=r[cols.account]; if(!activeAccounts.has(acc)) return; } const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; }); return by; }
 
-  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="4">Geen maanddata</td></tr>'; return; } const rows=months.map(m=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
+  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="5">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
 
     function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
