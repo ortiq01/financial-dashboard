@@ -198,6 +198,8 @@
     const dataUrl = qs.get('data') || defaultUrl;
     const el = (id) => document.getElementById(id);
     let lastData = { headers: [], allRows: [], sum: null };
+  // Shared household: disable savings-related insights by default; enable with ?savings=on
+  const disableSavings = (qs.get('savings') !== 'on');
     let selectedCategory = null; // active category filter (CBS main)
     let currentEditKey = null; // currently edited transaction key
 
@@ -419,9 +421,11 @@
 
     function generateInsights(sum, perAccount, historyByMonth){
       const insights=[];
-      // Savings rate
-      const income = sum.income; const spend = Math.abs(sum.expenses); const savings = sum.net;
-      if (income > 0){ const rate = (savings / income) * 100; if (rate < 10) insights.push({title:'Verhoog je spaarpercentage', text:`Je spaarpercentage is ${rate.toFixed(1)}%. Mik op 10–20% door vaste lasten te optimaliseren en variabele uitgaven te beperken.`}); else insights.push({title:'Mooi spaarpercentage', text:`Je spaart ${rate.toFixed(1)}% van je inkomen. Houd dit niveau vast.`}); }
+      // Savings rate (disabled by default for shared household accounts)
+      if (!disableSavings){
+        const income = sum.income; const spend = Math.abs(sum.expenses); const savings = sum.net;
+        if (income > 0){ const rate = (savings / income) * 100; if (rate < 10) insights.push({title:'Verhoog je spaarpercentage', text:`Je spaarpercentage is ${rate.toFixed(1)}%. Mik op 10–20% door vaste lasten te optimaliseren en variabele uitgaven te beperken.`}); else insights.push({title:'Mooi spaarpercentage', text:`Je spaart ${rate.toFixed(1)}% van je inkomen. Houd dit niveau vast.`}); }
+      }
       // Top category spend
       const topCat = Array.from(sum.catAgg.entries()).filter(([,v])=>v.sum<0).sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum))[0];
       if (topCat){ const [cat,v]=topCat; insights.push({title:`Grootste uitgavencategorie: ${cat}` , text:`Overweeg een budgetplafond. Gemiddeld per transactie: ${euro.format(Math.abs(v.sum)/(v.count||1))}.`}); }
