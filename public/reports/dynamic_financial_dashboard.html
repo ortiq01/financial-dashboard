@@ -188,6 +188,15 @@
       return Number.isFinite(n) ? n : 0;
     }
 
+    // Public month key helper for reuse
+    function monthKey(v) {
+      const s = (v||'').toString();
+      if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`; // 20250401 -> 2025-04
+      const d = new Date(s);
+      if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      return 'unknown';
+    }
+
     function summarize(headers, rows) {
       let cols = mapColumns(headers);
       const noColsResolved = [cols.date, cols.account, cols.description, cols.category, cols.amount].every(v => v === -1);
@@ -195,15 +204,6 @@
         cols = inferColumns(headers, rows);
       }
       // Month filter
-      const monthKey = (v) => {
-        const s = (v||'').toString();
-        // 20250401 => 2025-04
-        if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`;
-        // Try ISO
-        const d = new Date(s);
-        if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        return 'unknown';
-      };
       const monthCounts = new Map();
       rows.forEach(r => {
         const mk = cols.date >= 0 ? monthKey(r[cols.date]) : 'unknown';
@@ -232,12 +232,30 @@
       return { income, expenses, net: income + expenses, catAgg, cols, filtered };
     }
 
-  function renderTable(headers, rows) {
+    function renderTable(headers, rows, cols) {
       const headEl = el('txHead');
       const bodyEl = el('txBody');
-      headEl.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+      const colCount = rows[0] ? rows[0].length : (headers.length || 0);
+      let displayHeaders = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`);
+      // Rename known columns when inferred
+      if (cols) {
+        if (cols.date >= 0 && cols.date < displayHeaders.length) displayHeaders[cols.date] = 'Date';
+        if (cols.account >= 0 && cols.account < displayHeaders.length) displayHeaders[cols.account] = 'Account';
+        if (cols.description >= 0 && cols.description < displayHeaders.length) displayHeaders[cols.description] = 'Description';
+        if (cols.category >= 0 && cols.category < displayHeaders.length) displayHeaders[cols.category] = 'Category';
+        if (cols.amount >= 0 && cols.amount < displayHeaders.length) displayHeaders[cols.amount] = 'Amount';
+      }
+      // Add computed Month column at the end if we have a date column
+      const addMonth = cols && cols.date >= 0;
+      const headersWithMonth = addMonth ? [...displayHeaders, 'Month'] : displayHeaders;
+      headEl.innerHTML = headersWithMonth.map(h => `<th>${h}</th>`).join('');
       const maxRows = 500; // safety for huge files
-      bodyEl.innerHTML = rows.slice(0, maxRows).map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+      const rowsRendered = rows.slice(0, maxRows).map(r => {
+        const monthVal = addMonth ? monthKey(r[cols.date]) : '';
+        const cells = addMonth ? [...r, monthVal] : r;
+        return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+      }).join('');
+      bodyEl.innerHTML = rowsRendered;
       if (rows.length > maxRows) {
         showNotice(`Showing first ${maxRows} rows of ${rows.length}. Filter or reduce input for full view.`);
       }
@@ -269,14 +287,16 @@
       try {
         el('dataLabel').textContent = 'loading…';
         el('sourcePath').textContent = url;
-        const res = await fetch(url, { cache: 'no-store' });
+  // Add cache-busting to ensure fresh data after file updates
+  const bust = (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+  const res = await fetch(url + bust, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
     const { headers, rows } = parseTable(text);
     if (!rows.length) throw new Error('No rows');
     const sum = summarize(headers, rows);
     renderSummary(sum);
-    renderTable(headers, sum.filtered || rows);
+  renderTable(headers, sum.filtered || rows, sum.cols);
     renderCategories(sum);
         el('dataLabel').textContent = 'OK';
       } catch (e) {
