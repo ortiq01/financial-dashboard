@@ -66,6 +66,8 @@
         <button id="reloadBtn" class="secondary">Reload</button>
         <input id="customUrl" type="text" size="48" placeholder="/data/your-file.tab or full URL" />
         <button id="loadBtn">Load URL</button>
+        <span class="muted" style="margin-left:auto">Month:</span>
+        <select id="monthSelect"></select>
       </div>
       <div class="muted" style="margin-top:8px">Tip: You can set a query param ?data=/data/TXT250822073208.TAB</div>
     </div>
@@ -115,7 +117,13 @@
       const lines = text.split(/\r?\n/).filter(Boolean);
       if (!lines.length) return { headers: [], rows: [] };
       const headers = lines[0].split(delim).map(h => h.trim());
-      const rows = lines.slice(1).map(l => l.split(delim).map(v => v.trim()));
+      let rows = lines.slice(1).map(l => l.split(delim).map(v => v.trim()));
+      // If first line looks like data (no headers), include it and set empty headers
+      const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h));
+      if (headerLooksLikeData) {
+        rows = [headers, ...rows];
+        return { headers: [], rows };
+      }
       return { headers, rows };
     }
 
@@ -186,9 +194,33 @@
       if (noColsResolved || cols.amount === -1) {
         cols = inferColumns(headers, rows);
       }
+      // Month filter
+      const monthKey = (v) => {
+        const s = (v||'').toString();
+        // 20250401 => 2025-04
+        if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`;
+        // Try ISO
+        const d = new Date(s);
+        if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        return 'unknown';
+      };
+      const monthCounts = new Map();
+      rows.forEach(r => {
+        const mk = cols.date >= 0 ? monthKey(r[cols.date]) : 'unknown';
+        monthCounts.set(mk, (monthCounts.get(mk)||0)+1);
+      });
+      // Determine selected month (from UI or default to latest)
+      const months = Array.from(monthCounts.keys()).filter(m => m !== 'unknown').sort();
+      let selected = el('monthSelect').value || months[months.length-1] || 'unknown';
+      if (!el('monthSelect').value) {
+        // populate dropdown
+        el('monthSelect').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+        el('monthSelect').value = selected;
+      }
+      const filtered = rows.filter(r => (cols.date >= 0 ? monthKey(r[cols.date]) === selected : true));
       let income = 0, expenses = 0;
       const catAgg = new Map();
-      rows.forEach(r => {
+      filtered.forEach(r => {
         const amt = toNumber(cols.amount >= 0 ? r[cols.amount] : 0);
         if (amt >= 0) income += amt; else expenses += amt;
         const cat = (cols.category >= 0 ? r[cols.category] : 'Uncategorized') || 'Uncategorized';
@@ -197,10 +229,10 @@
         entry.sum += amt;
         catAgg.set(cat, entry);
       });
-      return { income, expenses, net: income + expenses, catAgg, cols };
+      return { income, expenses, net: income + expenses, catAgg, cols, filtered };
     }
 
-    function renderTable(headers, rows) {
+  function renderTable(headers, rows) {
       const headEl = el('txHead');
       const bodyEl = el('txBody');
       headEl.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
@@ -233,19 +265,19 @@
       n.style.display = 'block';
     }
 
-    async function load(url) {
+  async function load(url) {
       try {
         el('dataLabel').textContent = 'loading…';
         el('sourcePath').textContent = url;
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
-        const { headers, rows } = parseTable(text);
-        if (!headers.length || !rows.length) throw new Error('No rows');
-        const sum = summarize(headers, rows);
-        renderSummary(sum);
-        renderTable(headers, rows);
-        renderCategories(sum);
+    const { headers, rows } = parseTable(text);
+    if (!rows.length) throw new Error('No rows');
+    const sum = summarize(headers, rows);
+    renderSummary(sum);
+    renderTable(headers, sum.filtered || rows);
+    renderCategories(sum);
         el('dataLabel').textContent = 'OK';
       } catch (e) {
         el('dataLabel').textContent = 'error';
@@ -254,11 +286,12 @@
     }
 
     // Wire UI
-    el('reloadBtn').addEventListener('click', () => load(el('sourcePath').textContent));
+  el('reloadBtn').addEventListener('click', () => load(el('sourcePath').textContent));
     el('loadBtn').addEventListener('click', () => {
       const u = el('customUrl').value.trim();
       if (u) load(u);
     });
+  el('monthSelect').addEventListener('change', () => load(el('sourcePath').textContent));
 
     // Initial load
     load(dataUrl);
