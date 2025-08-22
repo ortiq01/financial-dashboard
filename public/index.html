@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#f6f8fb; color:#222; margin:0; padding:24px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    h1 { margin:0 0 12px; }
+    .card { background:#fff; border-radius:12px; padding:16px; box-shadow: 0 8px 20px rgba(0,0,0,.08); margin:16px 0; }
+    ul { margin: 8px 0; }
+    a { color:#1f6feb; text-decoration: none; }
+    .muted { color:#6b7280; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Financial Dashboard</h1>
+    <p class="muted">Welcome. Choose a report below, or go straight to the dynamic data dashboard.</p>
+    <div class="card">
+      <h3>Reports</h3>
+      <ul>
+        <li><a href="/reports/dynamic_financial_dashboard.html">Dynamic Financial Dashboard</a> <span class="muted">(default)</span></li>
+        <li><a href="/reports/financial_dashboard_complete.html">Financial Dashboard Complete</a></li>
+        <li><a href="/reports/enhanced_financial_dashboard.html">Enhanced Financial Dashboard</a></li>
+        <li><a href="/reports/enhanced_financial_dashboard_v12.html">Enhanced Financial Dashboard v12</a></li>
+        <li><a href="/reports/fixed_financial_dashboard.html">Fixed Financial Dashboard</a></li>
+        <li><a href="/reports/financial_analysis_report.html">Financial Analysis Report</a></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Tips</h3>
+      <ul>
+        <li>Add <code>?noredirect</code> to the root URL to show this page if redirection is enabled.</li>
+        <li>Dynamic dashboard accepts <code>?data=/data/your-file.TAB</code> to load a specific dataset.</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

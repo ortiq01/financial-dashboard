@@ -15,12 +15,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'financial-dashboard', ts: new Date().toISOString() });
 });
 
-// Redirect root to a default report path (configurable)
+// Root route: by default redirect to a default report, but allow disabling
 const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/dynamic_financial_dashboard.html';
+const DISABLE_ROOT_REDIRECT = process.env.DISABLE_ROOT_REDIRECT === '1';
 
 app.get('/', (req, res) => {
-  // Use 302 to allow interim, can be set to 301 once stable
-  res.redirect(DEFAULT_PATH);
+  const noRedirect = DISABLE_ROOT_REDIRECT || 'noredirect' in req.query;
+  if (!noRedirect) {
+    // 302 keeps it temporary and cache-safe behind proxies
+    return res.redirect(DEFAULT_PATH);
+  }
+  // Serve a simple landing page with links
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Optional lightweight status page
