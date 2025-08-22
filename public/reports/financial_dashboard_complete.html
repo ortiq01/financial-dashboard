@@ -222,6 +222,26 @@
             background: #f8f9fa;
             transition: all 0.3s ease;
         }
+
+    /* Transactions table refinements */
+    .transactions-table { table-layout: fixed; }
+    .transactions-table th:nth-child(1),
+    .transactions-table td:nth-child(1) { /* Datum */ width: 90px; white-space: nowrap; }
+    .transactions-table th:nth-child(2),
+    .transactions-table td:nth-child(2) { /* Beschrijving */ width: clamp(220px, 35%, 480px); max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .transactions-table th:nth-child(3),
+    .transactions-table td:nth-child(3) { /* Categorie */ width: 200px; }
+    .transactions-table th:nth-child(4),
+    .transactions-table td:nth-child(4) { /* Bedrag */ width: 140px; }
+    .transactions-table th:nth-child(5),
+    .transactions-table td:nth-child(5) { /* Opmerking */ width: 180px; }
+    .transactions-table tbody tr:nth-child(even) { background: #fcfdff; }
+    .transactions-table .amount { font-variant-numeric: tabular-nums; }
+    .amount.neutral { color: #2c3e50; }
+
+    .table-scroll { max-height: 420px; overflow-y: auto; }
+    .table-scroll table { margin-bottom: 0; }
+    .table-scroll thead th { position: sticky; top: 0; z-index: 1; background: #f8f9fa; }
         
         /* Amount styling */
         .amount {
@@ -312,6 +332,12 @@
             th, td {
                 padding: 10px 8px;
             }
+
+            /* On small screens, hide the last column for readability */
+            .transactions-table th:nth-child(5),
+            .transactions-table td:nth-child(5) { display: none; }
+            .transactions-table th:nth-child(3),
+            .transactions-table td:nth-child(3) { width: 140px; }
         }
 
         /* Export buttons */
@@ -364,31 +390,66 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>💰 Financieel Analyse Dashboard <span class="pill" style="background:#2ecc71; color:#fff; padding:4px 8px; border-radius: 999px; font-size: .6em; vertical-align: middle;" id="dataStatus">loading…</span></h1>
-            <p>Familie Hernandez Ortiz | Periode: <span id="periodLabel">-</span></p>
-            <p style="font-size: 0.9em; opacity: 0.8;">Laatst bijgewerkt: <span id="lastUpdated">-</span></p>
+            <h1>💰 Financieel Analyse Dashboard</h1>
+            <p>Familie Hernandez Ortiz | Periode: April - Juli 2025</p>
+            <p style="font-size: 0.9em; opacity: 0.8;">Laatst bijgewerkt: 19 juli 2025</p>
         </div>
         
         <div class="content">
-            <!-- Alert Section (dynamic) -->
-            <div class="alerts" id="alerts"></div>
+            <!-- Alert Section -->
+            <div class="alerts">
+                <div class="alert warning">
+                    <span class="alert-icon">⚠️</span>
+                    <div>
+                        <strong>Aandacht vereist:</strong> ABN AMRO Privé rekening heeft een laag saldo (€154,31). 
+                        Overweeg geld over te maken vanuit de zakelijke rekening.
+                    </div>
+                </div>
+                <div class="alert success">
+                    <span class="alert-icon">✅</span>
+                    <div>
+                        <strong>Positief:</strong> ING Zakelijk toont sterke inkomsten van €20.812 in juli. 
+                        Goede cashflow voor investeringen en reserves.
+                    </div>
+                </div>
+            </div>
 
             <!-- Summary Cards -->
-            <div class="summary-cards" id="cardsContainer"></div>
+            <div class="summary-cards">
+                <div class="card private">
+                    <h3>🏠 ABN AMRO Privé</h3>
+                    <div class="balance negative">€154,31</div>
+                    <p><strong>Status:</strong> Kritiek laag saldo</p>
+                    <p><strong>Laatste maand:</strong> -€1.420 (Juli)</p>
+                    <p style="margin-top: 10px; color: #e74c3c; font-weight: bold;">
+                        Actie nodig: Aanvullen vanuit zakelijke rekening
+                    </p>
+                </div>
+                
+                <div class="card business">
+                    <h3>💼 ING Zakelijk</h3>
+                    <div class="balance positive">€20.812+</div>
+                    <p><strong>Status:</strong> Uitstekende cashflow</p>
+                    <p><strong>Laatste maand:</strong> +€14.153 (Juli)</p>
+                    <p style="margin-top: 10px; color: #27ae60; font-weight: bold;">
+                        Mogelijkheid voor extra investeringen
+                    </p>
+                </div>
+                
+                <div class="card business">
+                    <h3>📊 Totaal Overzicht</h3>
+                    <div class="balance positive">€12.733</div>
+                    <p><strong>Gecombineerde positie:</strong> Gezond</p>
+                    <p><strong>Trend:</strong> Stijgend door projectinkomsten</p>
+                    <p style="margin-top: 10px; color: #3498db; font-weight: bold;">
+                        Focus op liquiditeitsverdeling
+                    </p>
+                </div>
+            </div>
 
             <!-- Export Options -->
             <div class="export-buttons">
-                <span class="muted" style="align-self:center">Bron:</span>
-                <span id="sourcePath" class="kbd" style="background:#f0f3f8; border:1px solid #e2e8f0; padding:6px 8px; border-radius:6px;">/data/latest.tab</span>
-                <button class="export-btn" id="reloadBtn" style="background:#fff; color:#1f2937; border:1px solid #e5e7eb;">Reload</button>
-                <input id="customUrl" type="text" size="40" placeholder="/data/your-file.tab of volledige URL" style="border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px;" />
-                <button class="export-btn" id="loadBtn">Load URL</button>
-                <span class="muted" style="align-self:center">Maand:</span>
-                <select id="monthSelect" style="border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px;"></select>
-                <span class="muted" style="align-self:center">Rekeningen:</span>
-                <div id="accountChips" class="toolbar" style="gap:6px"></div>
-                <button class="export-btn" id="exportTxBtn">📊 Exporteer Transacties (CSV)</button>
-                <button class="export-btn" id="exportCatBtn">📂 Exporteer Categorieën (CSV)</button>
+                <button class="export-btn" onclick="exportToCSV()">📊 Exporteer naar CSV</button>
                 <button class="export-btn" onclick="showAirtableStructure()">📋 Airtable Structuur</button>
                 <button class="export-btn" onclick="generateReport()">📄 Genereer Rapport</button>
             </div>
@@ -405,7 +466,7 @@
             <!-- Overview Tab -->
             <div id="overview" class="tab-content active">
                 <div class="table-container">
-                    <div class="table-header" id="overviewTitle">📊 Maandelijkse Samenvatting</div>
+                    <div class="table-header">📊 Maandelijkse Samenvatting - Juli 2025</div>
                     <table>
                         <thead>
                             <tr>
@@ -417,12 +478,37 @@
                                 <th>Trend</th>
                             </tr>
                         </thead>
-                        <tbody id="overviewBody"></tbody>
+                        <tbody>
+                            <tr>
+                                <td><strong>ABN AMRO Privé</strong></td>
+                                <td class="amount positive">€2.815,00</td>
+                                <td class="amount negative">-€4.235,00</td>
+                                <td class="amount negative">-€1.420,00</td>
+                                <td>⚠️ Tekort</td>
+                                <td>📉 Dalend</td>
+                            </tr>
+                            <tr>
+                                <td><strong>ING Zakelijk</strong></td>
+                                <td class="amount positive">€22.352,60</td>
+                                <td class="amount negative">-€8.200,00</td>
+                                <td class="amount positive">+€14.152,60</td>
+                                <td>✅ Uitstekend</td>
+                                <td>📈 Stijgend</td>
+                            </tr>
+                            <tr style="background: #f8f9fa; font-weight: bold;">
+                                <td><strong>TOTAAL</strong></td>
+                                <td class="amount positive">€25.167,60</td>
+                                <td class="amount negative">-€12.435,00</td>
+                                <td class="amount positive">+€12.732,60</td>
+                                <td>✅ Positief</td>
+                                <td>📈 Groeiend</td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
 
                 <div class="table-container">
-                    <div class="table-header" id="historyTitle">📈 Historische Vergelijking</div>
+                    <div class="table-header">📈 Historische Vergelijking (April - Juli 2025)</div>
                     <table>
                         <thead>
                             <tr>
@@ -433,14 +519,137 @@
                                 <th>Grootste Uitgave</th>
                             </tr>
                         </thead>
-                        <tbody id="historyBody"></tbody>
+                        <tbody>
+                            <tr>
+                                <td><strong>Juli 2025</strong></td>
+                                <td class="amount positive">€25.167,60</td>
+                                <td class="amount negative">-€12.435,00</td>
+                                <td class="amount positive">+€12.732,60</td>
+                                <td>Beleggingen (-€2.500)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Juni 2025</strong></td>
+                                <td class="amount positive">€22.352,60</td>
+                                <td class="amount negative">-€8.200,00</td>
+                                <td class="amount positive">+€14.152,60</td>
+                                <td>Operationele kosten</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mei 2025</strong></td>
+                                <td class="amount positive">€21.575,00</td>
+                                <td class="amount negative">-€24.112,00</td>
+                                <td class="amount negative">-€2.537,00</td>
+                                <td>Belastingen (-€7.837)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>April 2025</strong></td>
+                                <td class="amount positive">€18.500,00</td>
+                                <td class="amount negative">-€16.877,00</td>
+                                <td class="amount positive">+€1.623,00</td>
+                                <td>BTW (-€8.641)</td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
 
             <!-- Accounts Tab -->
             <div id="accounts" class="tab-content">
-                <div id="accountsTables"></div>
+                <div class="table-container">
+                    <div class="table-header">🏠 ABN AMRO Privé - Juli 2025 Transacties</div>
+                    <div class="table-scroll">
+                    <table class="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Beschrijving</th>
+                                <th>Categorie</th>
+                                <th>Bedrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>15-07</td>
+                                <td>Belastingdienst - Maanduitkering</td>
+                                <td><span class="category-tag cat-inkomsten">Inkomsten</span></td>
+                                <td class="amount positive">€315,00</td>
+                            </tr>
+                            <tr>
+                                <td>15-07</td>
+                                <td>RDW - Kenteken registratie</td>
+                                <td><span class="category-tag cat-vervoer">Vervoer</span></td>
+                                <td class="amount negative">-€1,25</td>
+                            </tr>
+                            <tr>
+                                <td>17-07</td>
+                                <td>NS Groep - Reiskosten</td>
+                                <td><span class="category-tag cat-vervoer">Vervoer</span></td>
+                                <td class="amount negative">-€5,95</td>
+                            </tr>
+                            <tr>
+                                <td>19-07</td>
+                                <td>Diverse boodschappen</td>
+                                <td><span class="category-tag cat-boodschappen">Boodschappen</span></td>
+                                <td class="amount negative">-€127,50</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">💼 ING Zakelijk - Juli 2025 Transacties</div>
+                    <div class="table-scroll">
+                    <table class="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Beschrijving</th>
+                                <th>Categorie</th>
+                                <th>Bedrag</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>03-07</td>
+                                <td>Magnit Global Netherlands - TenneT Project</td>
+                                <td><span class="category-tag cat-zakelijk">Omzet</span></td>
+                                <td class="amount positive">€20.812,00</td>
+                            </tr>
+                            <tr>
+                                <td>11-07</td>
+                                <td>RM Wouters - Maandelijkse betaling</td>
+                                <td><span class="category-tag cat-zakelijk">Inkomsten</span></td>
+                                <td class="amount positive">€250,00</td>
+                            </tr>
+                            <tr>
+                                <td>11-07</td>
+                                <td>Naar Beleggingsrekening - Spaarbeleggen</td>
+                                <td><span class="category-tag cat-sparen">Investering</span></td>
+                                <td class="amount negative">-€2.500,00</td>
+                            </tr>
+                            <tr>
+                                <td>15-07</td>
+                                <td>Q.J. Hernandez Ortiz - Privé leening</td>
+                                <td><span class="category-tag cat-zakelijk">Privé Transfer</span></td>
+                                <td class="amount negative">-€300,00</td>
+                            </tr>
+                            <tr>
+                                <td>18-07</td>
+                                <td>Vodafone Libertel - Juli factuur zakelijk</td>
+                                <td><span class="category-tag cat-vaste-lasten">Telecom</span></td>
+                                <td class="amount negative">-€300,62</td>
+                            </tr>
+                            <tr>
+                                <td>19-07</td>
+                                <td>M.A. Butzelaar - Pensioensparen</td>
+                                <td><span class="category-tag cat-sparen">Pensioen</span></td>
+                                <td class="amount negative">-€250,00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Categories Tab -->
@@ -503,7 +712,7 @@
                 </div>
 
                 <div class="table-container">
-                    <div class="table-header" id="catTitleDyn">📊 Uitgaven per Categorie</div>
+                    <div class="table-header">📊 Uitgaven per Categorie - Juli 2025</div>
                     <table>
                         <thead>
                             <tr>
@@ -514,7 +723,43 @@
                                 <th>% van Totale Uitgaven</th>
                             </tr>
                         </thead>
-                        <tbody id="catBody"></tbody>
+                        <tbody>
+                            <tr>
+                                <td><span class="category-tag cat-sparen">📈 Sparen & Beleggen</span></td>
+                                <td>2</td>
+                                <td class="amount negative">-€2.750,00</td>
+                                <td class="amount">€1.375,00</td>
+                                <td>22,1%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-vaste-lasten">🏠 Vaste Lasten</span></td>
+                                <td>1</td>
+                                <td class="amount negative">-€300,62</td>
+                                <td class="amount">€300,62</td>
+                                <td>2,4%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-zakelijk">💼 Zakelijk Transfer</span></td>
+                                <td>1</td>
+                                <td class="amount negative">-€300,00</td>
+                                <td class="amount">€300,00</td>
+                                <td>2,4%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-boodschappen">🛒 Boodschappen</span></td>
+                                <td>3</td>
+                                <td class="amount negative">-€127,50</td>
+                                <td class="amount">€42,50</td>
+                                <td>1,0%</td>
+                            </tr>
+                            <tr>
+                                <td><span class="category-tag cat-vervoer">🚗 Vervoer</span></td>
+                                <td>2</td>
+                                <td class="amount negative">-€7,20</td>
+                                <td class="amount">€3,60</td>
+                                <td>0,1%</td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -522,8 +767,37 @@
             <!-- Insights Tab -->
             <div id="insights" class="tab-content">
                 <div class="insights">
-                    <h3>💡 Financiële Inzichten & Aanbevelingen (dynamisch)</h3>
-                    <div id="insightList"></div>
+                    <h3>💡 Financiële Inzichten & Aanbevelingen</h3>
+                    
+                    <div class="insight-item">
+                        <h4>🎯 Liquiditeitsbeheer</h4>
+                        <p><strong>Huidige situatie:</strong> ABN AMRO Privé heeft een kritiek laag saldo van €154,31 terwijl ING Zakelijk een sterke cashflow toont.</p>
+                        <p><strong>Aanbeveling:</strong> Transfereer €2.000-€3.000 van zakelijk naar privé om een buffer te creëren voor maandelijkse uitgaven.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>📈 Investeringsstrategie</h4>
+                        <p><strong>Positief punt:</strong> Consistente maandelijkse beleggingen van €2.500 tonen goede discipline.</p>
+                        <p><strong>Aanbeveling:</strong> Overweeg de beleggingsfrequentie te verhogen naar €3.000-€3.500 per maand gezien de sterke zakelijke inkomsten.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>💼 Zakelijke Cashflow</h4>
+                        <p><strong>Sterke punt:</strong> TenneT project genereerde €20.812 in juli - uitstekende projectomzet.</p>
+                        <p><strong>Aanbeveling:</strong> Reserveer 25-30% van grote projectinkomsten voor belastingen en zakelijke reserves.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>🏛️ Belastingplanning</h4>
+                        <p><strong>Aandachtspunt:</strong> Mei toonde hoge belastingbetalingen (€7.837). Plan voor Q2 2025 betalingen.</p>
+                        <p><strong>Aanbeveling:</strong> Zet maandelijks €2.000-€2.500 opzij voor toekomstige belastingverplichtingen.</p>
+                    </div>
+                    
+                    <div class="insight-item">
+                        <h4>📊 Uitgavenpatroon</h4>
+                        <p><strong>Observatie:</strong> Lage variabele uitgaven (boodschappen €127,50, vervoer €7,20) wijzen op gedisciplineerd uitgavenpatroon.</p>
+                        <p><strong>Aanbeveling:</strong> Budgetteer een kleine "lifestyle" post voor ontspanning en onverwachte uitgaven.</p>
+                    </div>
                 </div>
 
                 <div class="table-container">
@@ -539,7 +813,34 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="5" style="color:#5a6c7d">Wordt dynamisch gevuld op basis van inzichten (beta)</td></tr>
+                            <tr>
+                                <td><span style="color: #e74c3c; font-weight: bold;">HOOG</span></td>
+                                <td>Transfer zakelijk → privé voor liquiditeit</td>
+                                <td>€2.500</td>
+                                <td>Deze week</td>
+                                <td>⏳ Te doen</td>
+                            </tr>
+                            <tr>
+                                <td><span style="color: #f39c12; font-weight: bold;">MIDDEL</span></td>
+                                <td>Belastingreserve aanleggen</td>
+                                <td>€2.000/maand</td>
+                                <td>Augustus</td>
+                                <td>⏳ Te doen</td>
+                            </tr>
+                            <tr>
+                                <td><span style="color: #27ae60; font-weight: bold;">LAAG</span></td>
+                                <td>Beleggingen verhogen</td>
+                                <td>€3.000/maand</td>
+                                <td>September</td>
+                                <td>💭 Overweging</td>
+                            </tr>
+                            <tr>
+                                <td><span style="color: #3498db; font-weight: bold;">INFO</span></td>
+                                <td>Kwartaalreview plannen</td>
+                                <td>-</td>
+                                <td>Eind augustus</td>
+                                <td>📅 Gepland</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -623,319 +924,126 @@
         </div>
     </div>
 
-        <script>
-                // --- Utilities and data parsing (adapted from dynamic dashboard) ---
-                const euro = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
-                const qs = new URLSearchParams(location.search);
-                const defaultUrl = '/data/latest.tab';
-                const dataUrl = qs.get('data') || defaultUrl;
-                const el = (id) => document.getElementById(id);
-                let lastData = { headers: [], allRows: [], sum: null };
+    <script>
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+        
+        // Export functionality
+        function exportToCSV() {
+            const csvData = generateCSVData();
+            downloadCSV(csvData, 'financieel_overzicht_juli_2025.csv');
+        }
+        
+        function generateCSVData() {
+            const transactions = [
+                ['Datum', 'Rekening', 'Beschrijving', 'Categorie', 'Bedrag'],
+                ['2025-07-03', 'ING Zakelijk', 'Magnit Global - TenneT Project', 'Omzet', '20812.00'],
+                ['2025-07-11', 'ING Zakelijk', 'RM Wouters - Maandelijkse betaling', 'Inkomsten', '250.00'],
+                ['2025-07-11', 'ING Zakelijk', 'Naar Beleggingsrekening', 'Investering', '-2500.00'],
+                ['2025-07-15', 'ABN AMRO Privé', 'Belastingdienst - Maanduitkering', 'Inkomsten', '315.00'],
+                ['2025-07-15', 'ING Zakelijk', 'Q.J. Hernandez Ortiz - Privé leening', 'Privé Transfer', '-300.00'],
+                ['2025-07-18', 'ING Zakelijk', 'Vodafone Libertel', 'Telecom', '-300.62'],
+                ['2025-07-19', 'ING Zakelijk', 'M.A. Butzelaar - Pensioensparen', 'Pensioen', '-250.00']
+            ];
+            
+            return transactions.map(row => row.join(',')).join('\n');
+        }
+        
+        function downloadCSV(csvData, filename) {
+            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+        
+        function showAirtableStructure() {
+            alert(`Airtable Structuur voor Familie Hernandez Ortiz:
 
-                function detectDelimiter(text) {
-                    const firstLine = text.split(/\r?\n/)[0] || '';
-                    if (firstLine.includes('\t')) return '\t';
-                    if (firstLine.includes(';')) return ';';
-                    return ',';
-                }
+📊 TRANSACTIONS TABLE
+- Date (Date field)
+- Description (Single line text)
+- Amount (Currency - EUR)
+- Category (Single select)
+- Subcategory (Single select)
+- Account (Single select: ABN AMRO Privé, ING Zakelijk)
+- Transaction Type (Single select: Income, Expense, Transfer)
+- Notes (Long text)
 
-                function parseTable(text) {
-                    const delim = detectDelimiter(text);
-                    const lines = text.split(/\r?\n/).filter(Boolean);
-                    if (!lines.length) return { headers: [], rows: [] };
-                    const headers = lines[0].split(delim).map(h => h.trim());
-                    let rows = lines.slice(1).map(l => l.split(delim).map(v => v.trim()));
-                    const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h));
-                    if (headerLooksLikeData) { rows = [headers, ...rows]; return { headers: [], rows }; }
-                    return { headers, rows };
-                }
+📂 CATEGORIES TABLE  
+- Category Name (Single line text)
+- Color (Single line text)
+- Icon (Single line text)
+- Budget Limit (Currency - EUR)
+- Type (Single select: Income, Fixed, Variable, Investment)
 
-                function mapColumns(headers) {
-                    const idx = (names) => headers.findIndex(h => names.some(n => h.toLowerCase() === n || h.toLowerCase().includes(n)));
-                    return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']) };
-                }
+📈 MONTHLY SUMMARY TABLE
+- Month (Date field)
+- Account (Single select)
+- Total Income (Currency - EUR)
+- Total Expenses (Currency - EUR)
+- Net Amount (Currency - EUR)
+- Status (Single select)
 
-                function inferColumns(headers, rows) {
-                    const colCount = headers.length || (rows[0] ? rows[0].length : 0);
-                    const looksDate = (s) => /^\d{8}$/.test((s||'').replace(/\D/g,''));
-                    const looksAmount = (s) => { if (!s) return false; return /[\-+]?\d+[\.,]\d{2}$/.test(s.replace(/\s/g,'')); };
-                    const N = Math.min(rows.length, 100);
-                    const scores = Array.from({length: colCount}, () => ({ amount:0, date:0, text:0, numeric:0 }));
-                    for (let r=0; r<N; r++) { const row = rows[r] || []; for (let c=0; c<colCount; c++) { const v = row[c] || ''; if (looksAmount(v)) scores[c].amount++; if (looksDate(v)) scores[c].date++; if (/^[\d\s.,-]+$/.test(v)) scores[c].numeric++; else scores[c].text++; } }
-                    let amount = 0; let amountScore = -1; for (let c=0; c<colCount; c++) { if (scores[c].amount > amountScore && scores[c].date === 0) { amountScore = scores[c].amount; amount = c; } }
-                    let date = -1; let dateScore = -1; for (let c=0; c<colCount; c++) { if (scores[c].date > dateScore) { dateScore = scores[c].date; date = c; } }
-                    let account = -1; for (let c=0; c<colCount; c++) { if (c !== date && c !== amount) { account = c; break; } }
-                    const description = Math.max(0, colCount - 1);
-                    return { date, account, description, category: -1, amount };
-                }
+Deze structuur zorgt voor eenvoudige herhaling van analyses!`);
+        }
+        
+        function generateReport() {
+            alert(`📄 FINANCIEEL RAPPORT - JULI 2025
+Familie Hernandez Ortiz
 
-                function toNumber(s) {
-                    if (typeof s !== 'string') return Number(s) || 0;
-                    const cleaned = s.replace(/\s/g, '').replace(/€/g,'').replace(/\./g,'').replace(/,/g,'.');
-                    const n = Number(cleaned); return Number.isFinite(n) ? n : 0;
-                }
+SAMENVATTING:
+• Totale inkomsten: €25.167,60
+• Totale uitgaven: €12.435,00
+• Netto resultaat: +€12.732,60
 
-                function monthKey(v) {
-                    const s = (v||'').toString();
-                    if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}`;
-                    const d = new Date(s); if (!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                    return 'unknown';
-                }
+BELANGRIJKSTE BEVINDINGEN:
+✅ Sterke zakelijke cashflow door TenneT project
+⚠️ Privé rekening heeft liquiditeitsprobleem
+📈 Goede beleggingsdiscipline met €2.750/maand
 
-                        function summarize(headers, rows) {
-                    let cols = mapColumns(headers);
-                    const noColsResolved = [cols.date, cols.account, cols.description, cols.category, cols.amount].every(v => v === -1);
-                    if (noColsResolved || cols.amount === -1) cols = inferColumns(headers, rows);
-                    // Month dropdown population and selection
-                    const monthCounts = new Map();
-                    rows.forEach(r => { const mk = cols.date >= 0 ? monthKey(r[cols.date]) : 'unknown'; monthCounts.set(mk, (monthCounts.get(mk)||0)+1); });
-                            const months = Array.from(monthCounts.keys()).filter(m => m !== 'unknown').sort();
-                            let selected = el('monthSelect').value || months[months.length-1] || 'all';
-                            if (!el('monthSelect').value) {
-                                if (months.length === 0) {
-                                    el('monthSelect').innerHTML = '<option value="all">All</option>';
-                                    el('monthSelect').value = 'all';
-                                    selected = 'all';
-                                } else {
-                                    el('monthSelect').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
-                                    el('monthSelect').value = selected;
-                                }
-                            }
-                    // Accounts list and active selection
-                    const accounts = cols.account >= 0 ? Array.from(new Set(rows.map(r => r[cols.account]).filter(Boolean))) : [];
-                    if (accounts.length) renderAccountChips(accounts);
-                    const activeAccounts = getActiveAccounts(accounts);
-                    // Filter rows by month and accounts
-                    const filtered = rows.filter(r => {
-                                const okMonth = (selected === 'all' || selected === 'unknown' || cols.date < 0) ? true : (monthKey(r[cols.date]) === selected);
-                        const okAccount = (!accounts.length || activeAccounts.has(r[cols.account]));
-                        return okMonth && okAccount;
-                    });
-                    // Totals
-                    let income = 0, expenses = 0; const catAgg = new Map();
-                    filtered.forEach(r => { const amt = toNumber(cols.amount >= 0 ? r[cols.amount] : 0); if (amt >= 0) income += amt; else expenses += amt; const cat = (cols.category >= 0 ? r[cols.category] : 'Uncategorized') || 'Uncategorized'; const v = catAgg.get(cat)||{count:0,sum:0}; v.count++; v.sum += amt; catAgg.set(cat, v); });
-                    return { income, expenses, net: income + expenses, catAgg, cols, filtered, accounts, months, selected };
-                }
+AANBEVELINGEN:
+1. Direct €2.500 overboeken zakelijk → privé
+2. Maandelijks €2.000 reserveren voor belastingen
+3. Overwegen beleggingen te verhogen naar €3.000
 
-                // ----- Account chips -----
-                function renderAccountChips(accounts) {
-                    const wrap = el('accountChips'); if (!wrap) return;
-                    if (!renderAccountChips._state) { renderAccountChips._state = new Set(accounts); } else { accounts.forEach(a => renderAccountChips._state.add(a)); }
-                    wrap.innerHTML = '';
-                    accounts.forEach(acc => { const btn = document.createElement('button'); btn.className = renderAccountChips._state.has(acc) ? 'export-btn' : 'export-btn'; btn.style.background = renderAccountChips._state.has(acc) ? '#3498db' : '#fff'; btn.style.color = renderAccountChips._state.has(acc) ? '#fff' : '#1f2937'; btn.style.border = '1px solid #e5e7eb'; btn.style.borderRadius='999px'; btn.style.padding='6px 10px'; btn.textContent = acc; btn.addEventListener('click', () => { if (renderAccountChips._state.has(acc)) { renderAccountChips._state.delete(acc); btn.style.background='#fff'; btn.style.color='#1f2937'; } else { renderAccountChips._state.add(acc); btn.style.background='#3498db'; btn.style.color='#fff'; } load(el('sourcePath').textContent); }); wrap.appendChild(btn); });
-                }
-                function getActiveAccounts(all) { if (!renderAccountChips._state) return new Set(all); if (renderAccountChips._state.size === 0) return new Set(all); return new Set(Array.from(renderAccountChips._state)); }
-
-                // ---- Rendering functions for this page ----
-                function updateHeader(sum) {
-                    el('periodLabel').textContent = sum.selected || '-';
-                    el('lastUpdated').textContent = new Date().toLocaleString('nl-NL');
-                    el('dataStatus').textContent = 'OK';
-                }
-
-                function renderAlerts(sum, perAccount) {
-                    const wrap = el('alerts'); wrap.innerHTML = '';
-                    const make = (cls, icon, strong, text) => {
-                        const d = document.createElement('div'); d.className = `alert ${cls}`; d.innerHTML = `<span class="alert-icon">${icon}</span><div><strong>${strong}</strong> ${text}</div>`; wrap.appendChild(d);
-                    };
-                    if (sum.net < 0) make('warning','⚠️','Aandacht vereist:','Netto resultaat is negatief deze maand. Controleer uitgaven.');
-                    else make('success','✅','Positief:','Netto resultaat is positief deze maand.');
-                    // Find most negative account
-                    const worst = perAccount.slice().sort((a,b)=>a.net-b.net)[0];
-                    if (worst && worst.net < 0) make('warning','⚠️','Account in het rood:', `${worst.account} heeft een negatief netto van ${euro.format(worst.net)} in ${sum.selected}.`);
-                }
-
-                function renderSummaryCards(sum, perAccount) {
-                    const cont = el('cardsContainer'); cont.innerHTML = '';
-                    // Total card
-                    const totalCard = document.createElement('div'); totalCard.className = 'card business';
-                    totalCard.innerHTML = `<h3>📊 Totaal Overzicht</h3><div class="balance ${sum.net>=0?'positive':'negative'}">${euro.format(sum.net)}</div><p><strong>Inkomsten:</strong> ${euro.format(sum.income)}</p><p><strong>Uitgaven:</strong> ${euro.format(Math.abs(sum.expenses))}</p>`;
-                    cont.appendChild(totalCard);
-                    // Per-account cards
-                    perAccount.forEach(a => {
-                        const div = document.createElement('div'); div.className = 'card ' + (a.net>=0?'business':'private');
-                        div.innerHTML = `<h3>${a.icon||'🏦'} ${a.account}</h3><div class="balance ${a.net>=0?'positive':'negative'}">${euro.format(a.net)}</div><p><strong>Inkomsten:</strong> ${euro.format(a.income)}</p><p><strong>Uitgaven:</strong> ${euro.format(Math.abs(a.expenses))}</p>`;
-                        cont.appendChild(div);
-                    });
-                }
-
-                function renderOverview(sum, perAccount, prevMonthMap) {
-                    el('overviewTitle').textContent = `📊 Maandelijkse Samenvatting - ${sum.selected || ''}`;
-                    const tbody = el('overviewBody');
-                    const rows = perAccount.map(a => {
-                        const prev = prevMonthMap.get(a.account) || { net: 0 };
-                        const trend = a.net >= prev.net ? '📈 Stijgend' : '📉 Dalend';
-                        const status = a.net >= 0 ? '✅ Positief' : '⚠️ Tekort';
-                        return `<tr><td><strong>${a.account}</strong></td><td class="amount positive">${euro.format(a.income)}</td><td class="amount negative">-${euro.format(Math.abs(a.expenses)).replace('€','')}</td><td class="amount ${a.net>=0?'positive':'negative'}">${a.net>=0?'+':''}${euro.format(a.net)}</td><td>${status}</td><td>${trend}</td></tr>`;
-                    });
-                    // total row
-                    rows.push(`<tr style="background:#f8f9fa; font-weight:bold;"><td><strong>TOTAAL</strong></td><td class="amount positive">${euro.format(sum.income)}</td><td class="amount negative">-${euro.format(Math.abs(sum.expenses)).replace('€','')}</td><td class="amount ${sum.net>=0?'positive':'negative'}">${sum.net>=0?'+':''}${euro.format(sum.net)}</td><td>${sum.net>=0?'✅ Positief':'⚠️ Negatief'}</td><td></td></tr>`);
-                    tbody.innerHTML = rows.join('');
-                }
-
-                function renderHistory(headers, allRows, cols, months, selected) {
-                    el('historyTitle').textContent = '📈 Historische Vergelijking';
-                    const monthSet = new Set(months);
-                    const monthOrder = months.slice().sort();
-                    const byMonth = new Map();
-                    monthOrder.forEach(m => byMonth.set(m, { income:0, expenses:0, net:0, cats:new Map() }));
-                    allRows.forEach(r => { const m = cols.date>=0 ? monthKey(r[cols.date]) : 'unknown'; if (!monthSet.has(m)) return; const amt = toNumber(cols.amount>=0? r[cols.amount] : 0); const bucket = byMonth.get(m); if (!bucket) return; if (amt>=0) bucket.income += amt; else bucket.expenses += amt; bucket.net = bucket.income + bucket.expenses; const cat = (cols.category>=0? r[cols.category] : 'Uncategorized') || 'Uncategorized'; const v = bucket.cats.get(cat)||0; bucket.cats.set(cat, v+amt); });
-                    const tbody = el('historyBody');
-                    const last6 = monthOrder.slice(-6);
-                    const rows = last6.map(m => { const b = byMonth.get(m) || {income:0, expenses:0, net:0, cats:new Map()}; const biggest = Array.from(b.cats.entries()).sort((a,b)=>Math.abs(b[1]) - Math.abs(a[1]))[0]; const label = new Date(m+'-01'); const monthLabel = label.toLocaleDateString('nl-NL', { month:'long', year:'numeric' }); const biggestText = biggest ? `${biggest[0]} (${euro.format(biggest[1])})` : '-'; return `<tr><td><strong>${monthLabel}</strong></td><td class="amount positive">${euro.format(b.income)}</td><td class="amount negative">-${euro.format(Math.abs(b.expenses)).replace('€','')}</td><td class="amount ${b.net>=0?'positive':'negative'}">${b.net>=0?'+':''}${euro.format(b.net)}</td><td>${biggestText}</td></tr>`; }).join('');
-                    tbody.innerHTML = rows || '<tr><td colspan="5">Geen historische data</td></tr>';
-                }
-
-                function renderAccountsTables(headers, filteredRows, cols, selected) {
-                    const cont = el('accountsTables'); cont.innerHTML='';
-                    const groups = new Map();
-                    filteredRows.forEach(r => { const acc = cols.account>=0 ? (r[cols.account] || 'Onbekend') : 'Onbekend'; if (!groups.has(acc)) groups.set(acc, []); groups.get(acc).push(r); });
-                    const accs = Array.from(groups.keys()).sort();
-                    accs.forEach(acc => {
-                        const rows = groups.get(acc) || [];
-                        const div = document.createElement('div'); div.className='table-container';
-                        const title = document.createElement('div'); title.className='table-header'; title.textContent = `${acc} - ${selected} Transacties`;
-                        const table = document.createElement('table');
-                        const thead = document.createElement('thead'); const trh = document.createElement('tr');
-                        const colsToShow = [];
-                        const displayHeaders = (function(){ const colCount = rows[0]?.length || headers.length || 0; let d = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`); if (cols.date>=0 && cols.date<d.length) d[cols.date]='Datum'; if (cols.description>=0 && cols.description<d.length) d[cols.description]='Beschrijving'; if (cols.category>=0 && cols.category<d.length) d[cols.category]='Categorie'; if (cols.amount>=0 && cols.amount<d.length) d[cols.amount]='Bedrag'; if (cols.account>=0 && cols.account<d.length) d[cols.account]='Rekening'; return d; })();
-                        // Prefer key columns order
-                        const order = [cols.date, cols.description, cols.category, cols.amount].filter(i => i>=0);
-                        order.forEach(i => { colsToShow.push(i); const th = document.createElement('th'); th.textContent = displayHeaders[i] || `C${i+1}`; trh.appendChild(th); });
-                        thead.appendChild(trh);
-                        const tbody = document.createElement('tbody');
-                        rows.forEach(r => {
-                            const tr = document.createElement('tr');
-                            colsToShow.forEach(i => {
-                                const td = document.createElement('td');
-                                let val = r[i] || '';
-                                if (i === cols.amount) { td.className = 'amount ' + (toNumber(val)>=0 ? 'positive':'negative'); val = (toNumber(val)>=0 ? '' : '-') + euro.format(Math.abs(toNumber(val))).replace('€',''); td.innerHTML = (toNumber(r[i])>=0 ? euro.format(toNumber(r[i])) : '-' + euro.format(Math.abs(toNumber(r[i])))).replace('€','€'); }
-                                td.textContent = i===cols.amount ? (toNumber(r[i])>=0 ? euro.format(toNumber(r[i])) : '-' + euro.format(Math.abs(toNumber(r[i])))) : val; tr.appendChild(td);
-                            });
-                            tbody.appendChild(tr);
-                        });
-                        table.appendChild(thead); table.appendChild(tbody);
-                        div.appendChild(title); div.appendChild(table); cont.appendChild(div);
-                    });
-                }
-
-                function renderCategories(sum) {
-                    const tbody = el('catBody');
-                    const entries = Array.from(sum.catAgg.entries());
-                    if (!entries.length) {
-                        el('catTitleDyn').textContent = `📊 Uitgaven per Categorie - ${sum.selected || ''}`;
-                        tbody.innerHTML = '<tr><td colspan="5">Geen categorie-data</td></tr>';
-                        return;
-                    }
-                    // Totaal negatieve uitgaven voor percentageberekening
-                    const totalNeg = entries.reduce((a, [, v]) => a + (v.sum < 0 ? Math.abs(v.sum) : 0), 0);
-                    const denom = totalNeg > 0 ? totalNeg : 1; // voorkom delen door 0
-
-                    // Sorteer op absolute waarde (grootste eerst)
-                    const rows = entries
-                        .sort((a, b) => Math.abs(b[1].sum) - Math.abs(a[1].sum))
-                        .map(([cat, v]) => {
-                            const count = v.count || 0;
-                            const avg = count > 0 ? Math.abs(v.sum) / count : 0;
-                            const pct = v.sum < 0 ? (Math.abs(v.sum) / denom) * 100 : 0;
-                            const catLabel = `<span class="category-tag">${cat}</span>`;
-                            return `<tr>
-                                <td>${catLabel}</td>
-                                <td>${count}</td>
-                                <td class="amount ${v.sum >= 0 ? 'positive' : 'negative'}">${euro.format(v.sum)}</td>
-                                <td class="amount">${euro.format(avg)}</td>
-                                <td>${pct.toFixed(1)}%</td>
-                            </tr>`;
-                        })
-                        .join('');
-                    el('catTitleDyn').textContent = `📊 Uitgaven per Categorie - ${sum.selected || ''}`;
-                    tbody.innerHTML = rows;
-                }
-
-                function buildDisplayHeaders(headers, cols) {
-                    const colCount = lastData.sum?.filtered?.[0]?.length || headers.length || 0;
-                    let display = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`);
-                    if (cols.date>=0 && cols.date<display.length) display[cols.date]='Date';
-                    if (cols.account>=0 && cols.account<display.length) display[cols.account]='Account';
-                    if (cols.description>=0 && cols.description<display.length) display[cols.description]='Description';
-                    if (cols.category>=0 && cols.category<display.length) display[cols.category]='Category';
-                    if (cols.amount>=0 && cols.amount<display.length) display[cols.amount]='Amount';
-                    return display;
-                }
-
-                function toCSV(rows) { return rows.map(r => r.map(v => { const s = (v ?? '').toString(); if (/[",\n;\t]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'; return s; }).join(',')).join('\n'); }
-                function downloadCSV(csvText, filename) { const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); }
-                function exportTransactionsCSV() { if (!lastData.sum) return; const { headers, sum } = lastData; const cols = sum.cols; const rows = sum.filtered?.length ? sum.filtered : lastData.allRows; const headerRow = buildDisplayHeaders(headers, cols); const addMonth = cols && cols.date>=0; const out = []; out.push(addMonth ? [...headerRow, 'Month'] : headerRow); for (const r of rows) { const m = addMonth ? monthKey(r[cols.date]) : undefined; out.push(addMonth ? [...r, m] : r); } const csv = toCSV(out); const month = sum.selected || 'all'; downloadCSV(csv, `transactions_${month}.csv`); }
-                function exportCategoriesCSV() { if (!lastData.sum) return; const entries = Array.from(lastData.sum.catAgg.entries()).sort((a,b)=>Math.abs(b[1].sum) - Math.abs(a[1].sum)); const out = [['Category','Count','Amount']]; for (const [cat,v] of entries) out.push([cat, String(v.count), v.sum.toFixed(2)]); const csv = toCSV(out); const month = lastData.sum.selected || 'all'; downloadCSV(csv, `categories_${month}.csv`); }
-
-                function showAirtableStructure() {
-                    alert(`Airtable Structuur voor Familie Hernandez Ortiz:\n\n📊 TRANSACTIONS TABLE\n- Date (Date field)\n- Description (Single line text)\n- Amount (Currency - EUR)\n- Category (Single select)\n- Subcategory (Single select)\n- Account (Single select)\n- Transaction Type (Single select)\n- Notes (Long text)\n\n📂 CATEGORIES TABLE\n- Category Name\n- Color\n- Icon\n- Budget Limit\n- Type (Income, Fixed, Variable, Investment)\n\n📈 MONTHLY SUMMARY TABLE\n- Month\n- Account\n- Total Income\n- Total Expenses\n- Net Amount\n- Status`);
-                }
-
-                function generateReport() {
-                    if (!lastData.sum) { alert('Nog geen data geladen.'); return; }
-                    const s = lastData.sum; const month = s.selected || ''; const txt = `📄 FINANCIEEL RAPPORT - ${month}\nFamilie Hernandez Ortiz\n\nSAMENVATTING:\n• Totale inkomsten: ${euro.format(s.income)}\n• Totale uitgaven: ${euro.format(Math.abs(s.expenses))}\n• Netto resultaat: ${s.net>=0?'+':''}${euro.format(s.net)}\n\nBELANGRIJKSTE BEVINDINGEN:\n• Grootste uitgavencategorie: ${Array.from(s.catAgg.entries()).sort((a,b)=>Math.abs(b[1].sum)-Math.abs(a[1].sum))[0]?.[0] || '-'}\n• Aantal transacties: ${s.filtered.length}\n\nRapport gegenereerd op ${new Date().toLocaleDateString('nl-NL')}`; alert(txt);
-                }
-
-                function computePerAccount(sum) {
-                    const accMap = new Map(); const cols = sum.cols;
-                    sum.filtered.forEach(r => { const acc = cols.account>=0 ? (r[cols.account] || 'Onbekend') : 'Onbekend'; const amt = toNumber(cols.amount>=0? r[cols.amount] : 0); if (!accMap.has(acc)) accMap.set(acc, { account: acc, income:0, expenses:0, net:0 }); const a = accMap.get(acc); if (amt>=0) a.income += amt; else a.expenses += amt; a.net = a.income + a.expenses; });
-                    return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account));
-                }
-
-                        function computePrevMonthPerAccount(allRows, cols, selected) {
-                            if (cols.date === undefined || cols.date === null || cols.date < 0) return new Map();
-                    const [y,m] = selected.split('-'); const d = new Date(Number(y), Number(m)-2, 1); // previous month
-                    const prevKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                    const map = new Map();
-                    allRows.filter(r => monthKey(r[cols.date])===prevKey).forEach(r => { const acc = cols.account>=0 ? (r[cols.account] || 'Onbekend') : 'Onbekend'; const amt = toNumber(cols.amount>=0? r[cols.amount] : 0); const o = map.get(acc)||{income:0, expenses:0, net:0}; if (amt>=0) o.income += amt; else o.expenses += amt; o.net = o.income + o.expenses; map.set(acc,o); });
-                    return map;
-                }
-
-                async function load(url) {
-                    try {
-                        el('dataStatus').textContent = 'loading…'; el('sourcePath').textContent = url;
-                        const bust = (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
-                        const res = await fetch(url + bust, { cache: 'no-store' }); if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                        const text = await res.text(); const { headers, rows } = parseTable(text); if (!rows.length) throw new Error('No rows');
-                        const sum = summarize(headers, rows);
-                        // store
-                        lastData = { headers, allRows: rows, sum };
-                        // Compute helpers
-                        const perAccount = computePerAccount(sum);
-                        const prevMonthMap = computePrevMonthPerAccount(rows, sum.cols, sum.selected);
-                        // Update UI sections
-                        updateHeader(sum);
-                        renderAlerts(sum, perAccount);
-                        renderSummaryCards(sum, perAccount);
-                        renderOverview(sum, perAccount, prevMonthMap);
-                        renderHistory(headers, rows, sum.cols, sum.months, sum.selected);
-                        renderAccountsTables(headers, sum.filtered, sum.cols, sum.selected);
-                        renderCategories(sum);
-                    } catch (e) {
-                        el('dataStatus').textContent = 'error';
-                        alert('Kon data niet laden: ' + e.message);
-                    }
-                }
-
-                // Tab functionality
-                function showTab(tabName) {
-                        const tabContents = document.querySelectorAll('.tab-content'); tabContents.forEach(content => content.classList.remove('active'));
-                        const tabs = document.querySelectorAll('.tab'); tabs.forEach(tab => tab.classList.remove('active'));
-                        document.getElementById(tabName).classList.add('active'); event.target.classList.add('active');
-                }
-
-                // Wire controls
-                document.addEventListener('DOMContentLoaded', function() {
-                    // initial load
-                    load(dataUrl);
-                    // controls
-                    el('reloadBtn').addEventListener('click', () => load(el('sourcePath').textContent));
-                    el('loadBtn').addEventListener('click', () => { const u = el('customUrl').value.trim(); if (u) load(u); });
-                    el('monthSelect').addEventListener('change', () => load(el('sourcePath').textContent));
-                    el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
-                    el('exportCatBtn').addEventListener('click', exportCategoriesCSV);
-                });
-        </script>
+Rapport gegenereerd op ${new Date().toLocaleDateString('nl-NL')}`);
+        }
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate cards on load
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+        });
+    </script>
 </body>
 </html>

@@ -206,6 +206,26 @@
             transition: all 0.3s ease;
         }
 
+    /* Transactions table refinements */
+    .transactions-table { table-layout: fixed; }
+    .transactions-table th:nth-child(1),
+    .transactions-table td:nth-child(1) { /* Datum */ width: 90px; white-space: nowrap; }
+    .transactions-table th:nth-child(2),
+    .transactions-table td:nth-child(2) { /* Beschrijving */ width: clamp(220px, 35%, 480px); max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .transactions-table th:nth-child(3),
+    .transactions-table td:nth-child(3) { /* Categorie / Rekening */ width: 200px; }
+    .transactions-table th:nth-child(4),
+    .transactions-table td:nth-child(4) { /* Bedrag */ width: 140px; }
+    .transactions-table th:nth-child(5),
+    .transactions-table td:nth-child(5) { /* Opmerking / Extra */ width: 180px; }
+    .transactions-table tbody tr:nth-child(even) { background: #fcfdff; }
+    .transactions-table .amount { font-variant-numeric: tabular-nums; }
+    .amount.neutral { color: #2c3e50; }
+
+    .table-scroll { max-height: 420px; overflow-y: auto; }
+    .table-scroll table { margin-bottom: 0; }
+    .table-scroll thead th { position: sticky; top: 0; z-index: 1; background: #f8f9fa; }
+
         /* Amount styling */
         .amount {
             font-weight: bold;
@@ -346,6 +366,12 @@
             th, td {
                 padding: 10px 8px;
             }
+
+            /* On small screens, hide the last column for readability */
+            .transactions-table th:nth-child(5),
+            .transactions-table td:nth-child(5) { display: none; }
+            .transactions-table th:nth-child(3),
+            .transactions-table td:nth-child(3) { width: 140px; }
         }
 
         .alert {
@@ -501,7 +527,8 @@
 
                     <div class="table-container">
                         <div class="table-header">🏆 Top 10 Transacties Juli 2025</div>
-                        <table>
+                        <div class="table-scroll">
+                        <table class="transactions-table">
                             <thead>
                                 <tr>
                                     <th>Datum</th>
@@ -563,11 +590,13 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <div class="table-container">
                         <div class="table-header">💼 Alle Transacties Juli 2025 - ING Zakelijk</div>
-                        <table>
+                        <div class="table-scroll">
+                        <table class="transactions-table">
                             <thead>
                                 <tr>
                                     <th>Datum</th>
@@ -622,6 +651,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
 

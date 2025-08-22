@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapporten – Financieel Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; margin: 0; background: #f6f8fb; color: #1f2937; }
+    .wrap { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); overflow: hidden; }
+    header { padding: 24px; background: linear-gradient(135deg, #2c3e50, #34495e); color: #fff; }
+    header h1 { margin: 0 0 6px; font-size: 1.6rem; }
+    header p { margin: 0; opacity: .85; }
+    main { padding: 20px 22px; }
+    ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    a.card { display: block; padding: 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; text-decoration: none; color: inherit; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+    a.card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); background: #fff; }
+    .title { font-weight: 600; margin: 0 0 6px; }
+    .path { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: .85rem; color: #4b5563; }
+    footer { padding: 14px 22px; font-size: .9rem; color: #6b7280; border-top: 1px solid #e5e7eb; background: #fafafa; }
+  </style>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline' 'self';" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="data:," />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="color-scheme" content="light dark" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>📂 Financieel Dashboard – Rapporten</h1>
+      <p>Kies een rapport uit de lijst hieronder.</p>
+    </header>
+    <main>
+      <ul>
+        <li>
+          <a class="card" href="fixed_financial_dashboard.html">
+            <div class="title">Fixed Financial Dashboard</div>
+            <div class="path">/reports/fixed_financial_dashboard.html</div>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="financial_dashboard_complete.html">
+            <div class="title">Financial Dashboard – Complete</div>
+            <div class="path">/reports/financial_dashboard_complete.html</div>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="enhanced_financial_dashboard.html">
+            <div class="title">Enhanced Financial Dashboard</div>
+            <div class="path">/reports/enhanced_financial_dashboard.html</div>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="enhanced_financial_dashboard_v12.html">
+            <div class="title">Enhanced Financial Dashboard v12</div>
+            <div class="path">/reports/enhanced_financial_dashboard_v12.html</div>
+          </a>
+        </li>
+        <li>
+          <a class="card" href="financial_analysis_report.html">
+            <div class="title">Financial Analysis Report</div>
+            <div class="path">/reports/financial_analysis_report.html</div>
+          </a>
+        </li>
+      </ul>
+    </main>
+    <footer>
+      <span>Laatste update: <span id="ts"></span></span>
+    </footer>
+  </div>
+  <script>document.getElementById('ts').textContent = new Date().toLocaleString('nl-NL');</script>
+  
+</body>
+</html>
