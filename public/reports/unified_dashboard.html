@@ -399,6 +399,7 @@
     function categorizeCBS(row, cols){
       const desc = normalize(cols.description>=0 ? row[cols.description] : '');
       const _sepa = parseSEPA(row, cols);
+      const amt = cols.amount>=0 ? toNumber(row[cols.amount]) : 0;
       // 1) Overrides always win
       const ovr = applyOverrides(row, cols, desc);
       if (ovr){
@@ -420,6 +421,10 @@
         if (!rule.any) continue;
         const hit = rule.any.find(k=> desc.includes(k));
         if (hit) return { main: rule.main, sub: rule.sub, source:'Regel', detail:`keyword "${hit}"` };
+      }
+      // 4b) If positive amount and no rule matched, classify as Income by default
+      if (amt >= 0){
+        return { main:'Inkomen', sub:'Overig', source:'Bedrag', detail:'positief' };
       }
       // 5) Fallback
       return { main: 'Overige Goederen & Diensten', sub: 'Overig', source:'Standaard', detail: (_sepa && _sepa.text) ? 'SEPA' : '' };
