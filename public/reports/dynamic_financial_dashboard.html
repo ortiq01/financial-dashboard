@@ -31,6 +31,12 @@
     button.secondary { background:#fff; color:#1f2937; border-color:#e5e7eb; }
     .warn { background: #fff7ed; border-left: 4px solid #f97316; padding: 10px 12px; border-radius: 8px; }
     .scroll { overflow:auto; max-height: 480px; }
+    /* Print report styles */
+    @media print {
+      body { background:#fff; }
+      .header, .toolbar, #notice, #catModal { display:none !important; }
+      .print-report { box-shadow:none; border:none; }
+    }
   </style>
 </head>
 <body>
@@ -66,15 +72,23 @@
         <button id="reloadBtn" class="secondary">Reload</button>
         <input id="customUrl" type="text" size="48" placeholder="/data/your-file.tab or full URL" />
         <button id="loadBtn">Load URL</button>
-        <span class="muted" style="margin-left:auto">Month:</span>
+  <button id="exportTxBtn" class="secondary">Export Transactions (CSV)</button>
+  <button id="exportCatBtn" class="secondary">Export Categories (CSV)</button>
+  <span class="muted" style="margin-left:auto">Accounts:</span>
+  <div id="accountChips" class="toolbar" style="gap:6px"></div>
+  <span class="muted">Month:</span>
         <select id="monthSelect"></select>
+  <button id="printBtn" class="secondary">Print Monthly Report</button>
       </div>
       <div class="muted" style="margin-top:8px">Tip: You can set a query param ?data=/data/TXT250822073208.TAB</div>
     </div>
 
-    <div class="grid" style="grid-template-columns: 1.2fr .8fr; align-items:start;">
+      <div class="grid" style="grid-template-columns: 1.2fr .8fr; align-items:start;">
       <div class="card section">
         <h3 style="margin-top:0">Transactions</h3>
+          <div class="toolbar" style="margin:6px 0 10px 0">
+            <input id="txSearch" type="text" placeholder="Search transactions…" size="40" />
+          </div>
         <div class="scroll">
           <table id="txTable">
             <thead><tr id="txHead"></tr></thead>
@@ -86,7 +100,11 @@
         <h3 style="margin-top:0">Spend by Category</h3>
         <table>
           <thead>
-            <tr><th>Category</th><th class="muted">Count</th><th class="muted">Amount</th></tr>
+            <tr>
+                <th data-sort="cat">Category</th>
+                <th data-sort="count" class="muted">Count</th>
+                <th data-sort="amount" class="muted">Amount</th>
+            </tr>
           </thead>
           <tbody id="catBody"></tbody>
         </table>
@@ -94,6 +112,36 @@
     </div>
 
     <div id="notice" class="warn section" style="display:none"></div>
+
+    <!-- Print-friendly monthly report (hidden on screen, used for print) -->
+    <div id="printReport" class="card section print-report" style="display:none">
+      <h2 style="margin:0 0 8px 0">Monthly Report</h2>
+      <div class="muted" id="printMeta" style="margin-bottom:10px"></div>
+      <div id="printSummary"></div>
+      <div style="margin-top:12px">
+        <h3 style="margin:0 0 6px 0">Categories</h3>
+        <table style="width:100%"><thead><tr><th>Category</th><th>Count</th><th>Amount</th></tr></thead><tbody id="printCats"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Category Drilldown Modal -->
+    <div id="catModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); align-items:center; justify-content:center; padding:20px;">
+      <div style="background:#fff; border-radius:12px; max-width:1000px; width:100%; max-height:80vh; overflow:auto; box-shadow:0 20px 40px rgba(0,0,0,.2);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #eee;">
+          <h3 id="catTitle" style="margin:0">Category</h3>
+          <button id="catClose" class="secondary">Close</button>
+        </div>
+        <div style="padding:12px 16px;">
+          <div class="muted" id="catMeta" style="margin-bottom:8px"></div>
+          <div class="scroll">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead><tr id="catHead"></tr></thead>
+              <tbody id="catTx"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -101,6 +149,9 @@
     const qs = new URLSearchParams(location.search);
     const defaultUrl = '/data/latest.tab';
     const dataUrl = qs.get('data') || defaultUrl;
+
+  // Keep last loaded dataset for exports
+  let lastData = { headers: [], allRows: [], sum: null };
 
     const el = (id) => document.getElementById(id);
 
@@ -217,7 +268,15 @@
         el('monthSelect').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
         el('monthSelect').value = selected;
       }
-      const filtered = rows.filter(r => (cols.date >= 0 ? monthKey(r[cols.date]) === selected : true));
+      // Account filter: build chips on first run or when accounts change
+      const accounts = cols.account >= 0 ? Array.from(new Set(rows.map(r => r[cols.account]).filter(Boolean))) : [];
+      if (accounts.length) renderAccountChips(accounts);
+      const activeAccounts = getActiveAccounts(accounts);
+      const filtered = rows.filter(r => {
+        const okMonth = (cols.date >= 0 ? monthKey(r[cols.date]) === selected : true);
+        const okAccount = (!accounts.length || activeAccounts.has(r[cols.account]));
+        return okMonth && okAccount;
+      });
       let income = 0, expenses = 0;
       const catAgg = new Map();
       filtered.forEach(r => {
@@ -232,11 +291,51 @@
       return { income, expenses, net: income + expenses, catAgg, cols, filtered };
     }
 
-    function renderTable(headers, rows, cols) {
+    // ----- Account chips -----
+    function renderAccountChips(accounts) {
+      const wrap = el('accountChips');
+      if (!wrap) return;
+      // Initialize selection state if missing
+      if (!renderAccountChips._state) {
+        renderAccountChips._state = new Set(accounts);
+      } else {
+        // If new accounts appear, add them selected by default
+        accounts.forEach(a => renderAccountChips._state.add(a));
+      }
+      wrap.innerHTML = '';
+      accounts.forEach(acc => {
+        const btn = document.createElement('button');
+        btn.className = renderAccountChips._state.has(acc) ? '' : 'secondary';
+        btn.textContent = acc;
+        btn.style.borderRadius = '999px';
+        btn.style.padding = '6px 10px';
+        btn.addEventListener('click', () => {
+          if (renderAccountChips._state.has(acc)) {
+            renderAccountChips._state.delete(acc);
+            btn.className = 'secondary';
+          } else {
+            renderAccountChips._state.add(acc);
+            btn.className = '';
+          }
+          // Recompute using current source
+          load(el('sourcePath').textContent);
+        });
+        wrap.appendChild(btn);
+      });
+    }
+
+    function getActiveAccounts(all) {
+      if (!renderAccountChips._state) return new Set(all);
+      // If all disabled, fallback to all enabled
+      if (renderAccountChips._state.size === 0) return new Set(all);
+      return new Set(Array.from(renderAccountChips._state));
+    }
+
+  function renderTable(headers, rows, cols) {
       const headEl = el('txHead');
       const bodyEl = el('txBody');
       const colCount = rows[0] ? rows[0].length : (headers.length || 0);
-      let displayHeaders = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`);
+  let displayHeaders = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`);
       // Rename known columns when inferred
       if (cols) {
         if (cols.date >= 0 && cols.date < displayHeaders.length) displayHeaders[cols.date] = 'Date';
@@ -248,17 +347,38 @@
       // Add computed Month column at the end if we have a date column
       const addMonth = cols && cols.date >= 0;
       const headersWithMonth = addMonth ? [...displayHeaders, 'Month'] : displayHeaders;
-      headEl.innerHTML = headersWithMonth.map(h => `<th>${h}</th>`).join('');
+      headEl.innerHTML = headersWithMonth.map((h, i) => `<th data-col="${i}">${h}</th>`).join('');
       const maxRows = 500; // safety for huge files
-      const rowsRendered = rows.slice(0, maxRows).map(r => {
+      const search = (el('txSearch')?.value || '').toLowerCase();
+      const source = search ? rows.filter(r => (r.join(' ').toLowerCase().includes(search))) : rows;
+      const rowsRendered = source.slice(0, maxRows).map(r => {
         const monthVal = addMonth ? monthKey(r[cols.date]) : '';
         const cells = addMonth ? [...r, monthVal] : r;
         return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
       }).join('');
       bodyEl.innerHTML = rowsRendered;
-      if (rows.length > maxRows) {
-        showNotice(`Showing first ${maxRows} rows of ${rows.length}. Filter or reduce input for full view.`);
+      if (source.length > maxRows) {
+        showNotice(`Showing first ${maxRows} rows of ${source.length}. Filter or reduce input for full view.`);
       }
+      // Add simple sorting on click
+      headEl.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+        const idx = Number(th.getAttribute('data-col'));
+        if (Number.isNaN(idx)) return;
+        // toggle direction
+        renderTable._dir = renderTable._dir === 'asc' ? 'desc' : 'asc';
+        const dir = renderTable._dir;
+        const rowsToSort = rows.slice();
+        rowsToSort.sort((a, b) => {
+          const av = a[idx] || '';
+          const bv = b[idx] || '';
+          const an = parseFloat(String(av).replace(/[^\d\.-]/g,''));
+          const bn = parseFloat(String(bv).replace(/[^\d\.-]/g,''));
+          let cmp;
+          if (!isNaN(an) && !isNaN(bn)) cmp = an - bn; else cmp = String(av).localeCompare(String(bv));
+          return dir === 'asc' ? cmp : -cmp;
+        });
+        renderTable(headers, rowsToSort, cols);
+      }));
     }
 
     function renderSummary(sum) {
@@ -270,11 +390,78 @@
 
     function renderCategories(sum) {
       const tbody = el('catBody');
-      const rows = Array.from(sum.catAgg.entries())
-        .sort((a,b) => Math.abs(b[1].sum) - Math.abs(a[1].sum))
-        .map(([cat, v]) => `<tr><td>${cat}</td><td class="muted">${v.count}</td><td class="muted">${euro.format(v.sum)}</td></tr>`)
+      const entries = Array.from(sum.catAgg.entries());
+      const sortBy = renderCategories._sortBy || 'amount';
+      const dir = renderCategories._dir || 'desc';
+      const rows = entries
+        .sort((a,b) => {
+          let cmp = 0;
+          if (sortBy === 'cat') cmp = a[0].localeCompare(b[0]);
+          else if (sortBy === 'count') cmp = a[1].count - b[1].count;
+          else cmp = Math.abs(a[1].sum) - Math.abs(b[1].sum);
+          return dir === 'asc' ? cmp : -cmp;
+        })
+        .map(([cat, v]) => `<tr data-cat="${encodeURIComponent(cat)}" class="cat-row" style="cursor:pointer"><td>${cat}</td><td class="muted">${v.count}</td><td class="muted">${euro.format(v.sum)}</td></tr>`)
         .join('');
       tbody.innerHTML = rows || '<tr><td colspan="3" class="muted">No category data</td></tr>';
+      // attach click handlers
+      tbody.querySelectorAll('.cat-row').forEach(tr => tr.addEventListener('click', () => {
+        const cat = decodeURIComponent(tr.getAttribute('data-cat'));
+        showCategoryModal(cat);
+      }));
+      // header sorting
+      const thead = tbody.parentElement.querySelector('thead');
+      thead.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
+        const key = th.getAttribute('data-sort');
+        if (renderCategories._sortBy === key) {
+          renderCategories._dir = renderCategories._dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          renderCategories._sortBy = key; renderCategories._dir = 'desc';
+        }
+        renderCategories(sum);
+      }));
+    }
+
+    function showCategoryModal(category) {
+      const modal = el('catModal');
+      const title = el('catTitle');
+      const head = el('catHead');
+      const body = el('catTx');
+      const meta = el('catMeta');
+      if (!lastData.sum) return;
+      const { headers, sum } = lastData;
+      const cols = sum.cols;
+      const month = el('monthSelect').value || 'all';
+      title.textContent = `Category: ${category} (${month})`;
+      // Build headers similar to tx table
+      const displayHeaders = (function(){
+        const colCount = sum.filtered?.[0]?.length || headers.length || 0;
+        let display = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`);
+        if (cols) {
+          if (cols.date >= 0 && cols.date < display.length) display[cols.date] = 'Date';
+          if (cols.account >= 0 && cols.account < display.length) display[cols.account] = 'Account';
+          if (cols.description >= 0 && cols.description < display.length) display[cols.description] = 'Description';
+          if (cols.category >= 0 && cols.category < display.length) display[cols.category] = 'Category';
+          if (cols.amount >= 0 && cols.amount < display.length) display[cols.amount] = 'Amount';
+        }
+        return display;
+      })();
+      const addMonth = cols && cols.date >= 0;
+      head.innerHTML = (addMonth ? [...displayHeaders, 'Month'] : displayHeaders).map(h => `<th>${h}</th>`).join('');
+      // Filter current month rows and category
+      const rows = (sum.filtered && sum.filtered.length ? sum.filtered : lastData.allRows).filter(r => {
+        const catVal = cols.category >= 0 ? (r[cols.category] || 'Uncategorized') : 'Uncategorized';
+        return String(catVal) === String(category);
+      });
+      const total = rows.reduce((acc, r) => acc + toNumber(cols.amount >= 0 ? r[cols.amount] : 0), 0);
+      meta.textContent = `${rows.length} transactions, total ${euro.format(total)}`;
+      const maxRows = 1000;
+      const html = rows.slice(0, maxRows).map(r => {
+        const cells = addMonth ? [...r, monthKey(r[cols.date])] : r;
+        return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+      }).join('');
+      body.innerHTML = html || '<tr><td colspan="5" class="muted">No transactions</td></tr>';
+      modal.style.display = 'flex';
     }
 
     function showNotice(msg) {
@@ -297,12 +484,82 @@
     const sum = summarize(headers, rows);
     renderSummary(sum);
   renderTable(headers, sum.filtered || rows, sum.cols);
-    renderCategories(sum);
+  renderCategories(sum);
+    // Also update print view content (kept hidden until printing)
+    updatePrintView(sum);
+        // persist for exports
+        lastData = { headers, allRows: rows, sum };
         el('dataLabel').textContent = 'OK';
       } catch (e) {
         el('dataLabel').textContent = 'error';
         showNotice(`Failed to load data from ${url}: ${e.message}`);
       }
+    }
+
+    // ----- CSV Exports -----
+    function downloadCSV(csvText, filename) {
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function toCSV(rows) {
+      return rows.map(r => r.map(v => {
+        const s = (v ?? '').toString();
+        // Quote fields containing delimiter, quotes, or newlines
+        if (/[",\n;\t]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      }).join(',')).join('\n');
+    }
+
+    function buildDisplayHeaders(headers, cols) {
+      const colCount = lastData.sum?.filtered?.[0]?.length || headers.length || 0;
+      let display = headers && headers.length ? headers.slice() : Array.from({length: colCount}, (_, i) => `C${i+1}`);
+      if (cols) {
+        if (cols.date >= 0 && cols.date < display.length) display[cols.date] = 'Date';
+        if (cols.account >= 0 && cols.account < display.length) display[cols.account] = 'Account';
+        if (cols.description >= 0 && cols.description < display.length) display[cols.description] = 'Description';
+        if (cols.category >= 0 && cols.category < display.length) display[cols.category] = 'Category';
+        if (cols.amount >= 0 && cols.amount < display.length) display[cols.amount] = 'Amount';
+      }
+      return display;
+    }
+
+    function exportTransactionsCSV() {
+      if (!lastData.sum) { showNotice('No data loaded to export'); return; }
+      const { headers, sum } = lastData;
+      const cols = sum.cols;
+      const rows = sum.filtered && sum.filtered.length ? sum.filtered : lastData.allRows;
+      const headerRow = buildDisplayHeaders(headers, cols);
+      const addMonth = cols && cols.date >= 0;
+      const out = [];
+      out.push(addMonth ? [...headerRow, 'Month'] : headerRow);
+      for (const r of rows) {
+        const monthVal = addMonth ? monthKey(r[cols.date]) : undefined;
+        out.push(addMonth ? [...r, monthVal] : r);
+      }
+      const csv = toCSV(out);
+      const month = el('monthSelect').value || 'all';
+      downloadCSV(csv, `transactions_${month}.csv`);
+    }
+
+    function exportCategoriesCSV() {
+      if (!lastData.sum) { showNotice('No data loaded to export'); return; }
+      const entries = Array.from(lastData.sum.catAgg.entries())
+        .sort((a,b) => Math.abs(b[1].sum) - Math.abs(a[1].sum));
+      const out = [['Category','Count','Amount']];
+      for (const [cat, v] of entries) {
+        out.push([cat, String(v.count), v.sum.toFixed(2)]);
+      }
+      const csv = toCSV(out);
+      const month = el('monthSelect').value || 'all';
+      downloadCSV(csv, `categories_${month}.csv`);
     }
 
     // Wire UI
@@ -312,6 +569,46 @@
       if (u) load(u);
     });
   el('monthSelect').addEventListener('change', () => load(el('sourcePath').textContent));
+  el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
+  el('exportCatBtn').addEventListener('click', exportCategoriesCSV);
+    el('printBtn').addEventListener('click', () => {
+      // Ensure print view is populated with the latest data
+      if (lastData.sum) updatePrintView(lastData.sum);
+      const pr = el('printReport');
+      pr.style.display = 'block';
+      window.print();
+      // restore after print
+      setTimeout(() => { pr.style.display = 'none'; }, 0);
+    });
+    el('txSearch').addEventListener('input', () => {
+      if (!lastData.sum) return;
+      renderTable(lastData.headers, lastData.sum.filtered || lastData.allRows, lastData.sum.cols);
+    });
+
+    // Modal close handlers
+    el('catClose').addEventListener('click', () => { el('catModal').style.display = 'none'; });
+    el('catModal').addEventListener('click', (e) => {
+      if (e.target === el('catModal')) el('catModal').style.display = 'none';
+    });
+
+    function updatePrintView(sum) {
+      const month = el('monthSelect').value || '';
+      el('printMeta').textContent = `Period: ${month}`;
+      // Summary
+      el('printSummary').innerHTML = `
+        <div class="grid summary">
+          <div class="card"><div class="label">Total Income</div><div class="value">${euro.format(sum.income)}</div></div>
+          <div class="card"><div class="label">Total Expenses</div><div class="value">${euro.format(Math.abs(sum.expenses))}</div></div>
+          <div class="card"><div class="label">Net</div><div class="value">${euro.format(sum.net)}</div></div>
+          <div class="card"><div class="label">Transactions</div><div class="value">${Intl.NumberFormat('nl-NL').format(sum.catAgg.size ? Array.from(sum.catAgg.values()).reduce((a,b)=>a+b.count,0) : 0)}</div></div>
+        </div>`;
+      // Categories
+      const cats = Array.from(sum.catAgg.entries())
+        .sort((a,b) => Math.abs(b[1].sum) - Math.abs(a[1].sum))
+        .map(([cat, v]) => `<tr><td>${cat}</td><td>${v.count}</td><td>${euro.format(v.sum)}</td></tr>`)
+        .join('');
+      el('printCats').innerHTML = cats || '<tr><td colspan="3">No category data</td></tr>';
+    }
 
     // Initial load
     load(dataUrl);
