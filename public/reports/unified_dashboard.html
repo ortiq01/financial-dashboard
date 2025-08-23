@@ -121,6 +121,7 @@
         <span class="muted">Bron:</span>
         <span id="sourcePath" class="kbd">/data/latest.tab</span>
         <button id="reloadBtn" class="btn ghost">Reload</button>
+  <button id="syncBtn" class="btn" title="Start GoCardless sync">🔁 Sync</button>
         <div class="menu" style="margin-left:8px;">
           <button id="helpMenuBtn" class="btn ghost" title="Meer opties">☰</button>
           <div id="helpMenu" class="menu-dropdown" style="display:none">
@@ -135,13 +136,16 @@
 
     <div class="card" style="margin-bottom:16px;">
       <div class="toolbar">
-        <input id="customUrl" type="text" size="40" placeholder="/data/your-file.tab of volledige URL" class="kbd" style="padding:8px 10px;" />
+  <input id="customUrl" type="text" size="40" placeholder="/data/your-file.tab of volledige URL" class="kbd" style="padding:8px 10px;" />
         <button id="loadBtn" class="btn">Load URL</button>
+  <label class="btn ghost" for="fileInput" title="Laad lokaal CSV/TAB/TXT">📥 Upload</label>
+  <input id="fileInput" type="file" accept=".csv,.tab,.txt,text/csv,text/tab-separated-values,text/plain" style="display:none" />
         <span class="muted">Maand:</span>
         <select id="monthSelect" class="kbd" style="padding:8px 10px;"></select>
         <span class="muted">Rekeningen:</span>
         <div id="accountChips" class="toolbar" style="gap:6px"></div>
-        <label class="kbd" style="display:inline-flex; align-items:center; gap:6px; padding:6px 8px;"><input type="checkbox" id="excludeTransfers" /> Transfers uitsluiten</label>
+  <label class="kbd" style="display:inline-flex; align-items:center; gap:6px; padding:6px 8px;"><input type="checkbox" id="excludeTransfers" /> Transfers uitsluiten</label>
+  <label class="kbd" style="display:inline-flex; align-items:center; gap:6px; padding:6px 8px;"><input type="checkbox" id="aggressiveDedupe" /> Aggressieve dedupe</label>
         <button id="exportTxBtn" class="btn">📊 Export Transacties (CSV)</button>
         <button id="exportCatBtn" class="btn">📂 Export Categorieën (CSV)</button>
   <button id="rulesBtn" class="btn ghost">⚙️ Beheer regels</button>
@@ -278,7 +282,7 @@
 
     function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
     function parseTable(text){ const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=lines[0].split(d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>l.split(d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } return { headers, rows }; }
-  function mapColumns(headers){ const idx=(names)=>headers.findIndex(h=>names.some(n=>h.toLowerCase()===n||h.toLowerCase().includes(n))); return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']), mcc: idx(['mcc','merchant category code']), remittance: idx(['remittance information','remi','omschrijving2','additional information','overschrijving','sepa']), counterparty: idx(['naam tegenpartij','counterparty','name','naam']) }; }
+  function mapColumns(headers){ const idx=(names)=>headers.findIndex(h=>names.some(n=>h.toLowerCase()===n||h.toLowerCase().includes(n))); return { date: idx(['date','datum']), account: idx(['account','rekening']), description: idx(['description','omschrijving','beschrijving','description/omschrijving']), category: idx(['category','categorie']), amount: idx(['amount','bedrag','value']), mcc: idx(['mcc','merchant category code']), remittance: idx(['remittance information','remi','omschrijving2','additional information','overschrijving','sepa']), counterparty: idx(['naam tegenpartij','counterparty','name','naam']), id: idx(['id','transaction id','transactie id','transactienummer','mutatie id','mutation id','booking id','end to end id','end-to-end id','e2e id','kenmerk']) }; }
     function inferColumns(headers, rows){
       const colCount = headers.length || (rows[0]?rows[0].length:0);
       const looksDate=s=>/^\d{8}$/.test((s||'').replace(/\D/g,''));
@@ -337,7 +341,34 @@
     const OV_KEY = 'cbsCategoryOverrides';
     function getOverrides(){ try{ const raw=localStorage.getItem(OV_KEY); if(!raw) return {byKey:{}, byKeyword:[]}; const o=JSON.parse(raw); return { byKey: o.byKey||{}, byKeyword: Array.isArray(o.byKeyword)?o.byKeyword:[] }; }catch{ return {byKey:{}, byKeyword:[]}; } }
     function saveOverrides(o){ localStorage.setItem(OV_KEY, JSON.stringify(o)); }
-    function txnKey(row, cols){ const d = cols.date>=0 ? (row[cols.date]||'') : ''; const a = cols.amount>=0 ? toNumber(row[cols.amount]).toFixed(2) : '0.00'; const desc = cols.description>=0 ? normalize(row[cols.description]) : ''; const acc = cols.account>=0 ? (row[cols.account]||'') : ''; return [d,a,desc,acc].join('|'); }
+    function canonicalizeForKey(s, aggressive){
+      let t = (s||'').toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}+/gu,'');
+      // Remove IBAN-like tokens and long alphanumeric references when aggressive
+      if (aggressive){
+        t = t.replace(/nl[0-9a-z]{2}[0-9]{10,}/g,''); // crude IBAN strip
+        t = t.replace(/[a-z0-9]{10,}/g,''); // long refs
+        t = t.replace(/\d{5,}/g,''); // long digit sequences
+      }
+      // Collapse whitespace and trim
+      return t.replace(/\s+/g,' ').trim();
+    }
+    function txnKey(row, cols){
+      const aggressive = (localStorage.getItem('aggressiveDedupe') === '1');
+      // Prefer explicit transaction ID when available
+      if (cols.id>=0){
+        const idVal = (row[cols.id]||'').toString().trim();
+        if (idVal){
+          const acc = cols.account>=0 ? (row[cols.account]||'') : '';
+          return ['id', idVal, acc].join('|');
+        }
+      }
+      const d = cols.date>=0 ? (row[cols.date]||'') : '';
+      const a = cols.amount>=0 ? toNumber(row[cols.amount]).toFixed(2) : '0.00';
+      const descRaw = cols.description>=0 ? row[cols.description] : '';
+      const desc = canonicalizeForKey(descRaw, aggressive);
+      const acc = cols.account>=0 ? (row[cols.account]||'') : '';
+      return [d,a,desc,acc].join('|');
+    }
     function applyOverrides(row, cols, desc){
       const ov=getOverrides();
       const key=txnKey(row, cols);
@@ -632,6 +663,35 @@
 
     function renderTxFilterBar(){ const bar = el('txFilterBar'); if(!bar) return; if(selectedCategory){ bar.innerHTML = `<span class="filter-pill">Filter: ${selectedCategory} <span class="clear" title="Wis filter">×</span></span>`; bar.querySelector('.clear').addEventListener('click', clearCategoryFilter); } else { bar.innerHTML=''; } }
 
+    // --- GoCardless sync helpers ---
+    async function runSync(){
+      try{
+        el('dataStatus').textContent='syncing…';
+        const res = await fetch('/api/sync/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) });
+        const js = await res.json();
+        if (!res.ok || js.ok === false){ throw new Error(js?.error || 'Sync start failed'); }
+        // brief poll of status
+        await pollSyncStatus(5);
+        el('dataStatus').textContent='OK';
+      } catch(e){
+        el('dataStatus').textContent='error';
+        alert('Sync mislukt: ' + e.message);
+      }
+    }
+    async function pollSyncStatus(tries=5){
+      for(let i=0;i<tries;i++){
+        const r = await fetch('/api/sync/status', { cache:'no-store' });
+        const s = await r.json();
+        if (s && s.running){ el('dataStatus').textContent='syncing…'; await new Promise(t=>setTimeout(t, 1500)); continue; }
+        // if finished and lastUpdated exists, refresh header label from synced file
+        try{
+          const sj = await (await fetch('/data/synced_transactions.json?_ts='+Date.now(), { cache:'no-store' })).json();
+          if (sj && sj.lastUpdated){ el('lastUpdated').textContent = new Date(sj.lastUpdated).toLocaleString('nl-NL'); }
+        }catch{}
+        break;
+      }
+    }
+
     function getAllMains(){ const set=new Set(Object.keys(budgetRanges)); cbsRules.forEach(r=>set.add(r.main)); return Array.from(set); }
 
     function openEditModalForKey(key){ currentEditKey = key; const rows = lastData?.allRows || []; const cols = lastData?.sum?.cols || {}; const row = rows.find(r=> txnKey(r, cols) === key); if(!row){ alert('Transactie niet gevonden'); return; } const desc = cols.description>=0 ? (row[cols.description]||'') : ''; const cbs = categorizeCBS(row, cols); // pre-fill
@@ -664,19 +724,54 @@
     function clearAllOverrides(){ if(!confirm('Weet je zeker dat je alle regels wilt wissen?')) return; saveOverrides({byKey:{}, byKeyword:[]}); renderRulesLists(); recomputeAndRender(); }
 
   let _appliedMonthParam = false;
-  async function load(url){
+  async function renderFromText(text, label){
       try{
-        el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
-        const bust = (url.includes('?')?'&':'?') + '_ts=' + Date.now();
-        const res = await fetch(url + bust, { cache:'no-store' });
-        if (!res.ok) throw new Error('HTTP '+res.status);
-        const text = await res.text();
-        const { headers, rows } = parseTable(text);
+        el('dataStatus').textContent='parsing…'; el('sourcePath').textContent=label;
+  let { headers, rows } = parseTable(text);
+        // Try to merge GoCardless synced JSON if present
+        try{
+          const sj = await (await fetch('/data/synced_transactions.json?_ts='+Date.now(), { cache:'no-store' })).json();
+          if (sj && Array.isArray(sj.transactions) && sj.transactions.length){
+            const gcRows = sj.transactions.map(tx => {
+              const d = tx.date || tx.bookingDate || tx.valueDate || '';
+              const yyyymmdd = (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) ? d.replace(/-/g,'') : (new Date(d) instanceof Date && !isNaN(new Date(d)) ? `${new Date(d).getFullYear()}${String(new Date(d).getMonth()+1).padStart(2,'0')}${String(new Date(d).getDate()).padStart(2,'0')}` : '');
+              const amt = (tx.amount!=null?tx.amount:(tx.transactionAmount?.amount));
+              const desc = tx.description || tx.remittanceInformationUnstructured || (Array.isArray(tx.remittanceInformationUnstructuredArray)?tx.remittanceInformationUnstructuredArray.join(' '):'') || tx.creditorName || tx.debtorName || '';
+              const acc = tx.accountId || tx.iban || 'GoCardless';
+              return [acc, yyyymmdd, desc, String(amt ?? '')];
+            });
+            rows = rows.concat(gcRows);
+            if (sj.lastUpdated){ el('lastUpdated').textContent = new Date(sj.lastUpdated).toLocaleString('nl-NL'); }
+          }
+        } catch {}
         if(!rows.length) throw new Error('No rows');
-        const sum = summarize(headers, rows);
+        // Basic validation + deduplication
+        // Determine column mapping early so we can build stable transaction keys for dedupe
+        let preCols = mapColumns(headers);
+        const needInfer = [preCols.amount].some(v=>v===-1);
+        if (needInfer) preCols = inferColumns(headers, rows);
+        if (preCols.amount === -1){
+          // Without an amount column, categorization and net calculations are unreliable
+          console.warn('Geen kolom voor bedrag gevonden; resultaten kunnen onnauwkeurig zijn.');
+        } else {
+          // Dedupe across all rows (including any merged synced rows) by (date|amount|desc|account)
+          const seen = new Set();
+          const dedup = [];
+          let removed = 0;
+          for (const r of rows){
+            const key = txnKey(r, preCols);
+            if (!seen.has(key)){ seen.add(key); dedup.push(r); } else { removed++; }
+          }
+          rows = dedup;
+          if (removed>0){
+            const badge = document.getElementById('dataStatus');
+            if (badge){ badge.textContent = `OK • dedupe: ${removed}`; }
+          }
+        }
+  const sum = summarize(headers, rows);
         lastData = { headers, allRows: rows, sum };
-  const perAccount = computePerAccount(sum);
-  const history = computeHistoryByMonth(rows, sum.cols, sum.months, getActiveAccounts(sum.accounts||[]));
+        const perAccount = computePerAccount(sum);
+        const history = computeHistoryByMonth(rows, sum.cols, sum.months, getActiveAccounts(sum.accounts||[]));
 
         updateHeader(sum);
         renderKPIs(sum);
@@ -686,8 +781,19 @@
         renderTransactions(headers, sum.filtered, sum.cols);
         const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join('');
         el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>';
+        el('dataStatus').textContent='OK';
+      } catch(e){ el('dataStatus').textContent='error'; alert('Kon data niet laden: ' + e.message); }
+    }
 
-        // Apply deep-link month param once if valid
+  async function load(url){
+      try{
+        el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
+        const bust = (url.includes('?')?'&':'?') + '_ts=' + Date.now();
+        const res = await fetch(url + bust, { cache:'no-store' });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const text = await res.text();
+        await renderFromText(text, url);
+        // Apply deep-link month param once if valid (after initial load only)
         if (qsMonth && !_appliedMonthParam){
           if (sum.months && sum.months.includes(qsMonth)){
             el('monthSelect').value = qsMonth;
@@ -697,8 +803,6 @@
             _appliedMonthParam = true; // avoid loops even if invalid
           }
         }
-
-        el('dataStatus').textContent='OK';
       } catch(e){
         el('dataStatus').textContent='error';
         alert('Kon data niet laden: ' + e.message);
@@ -714,7 +818,30 @@
       }
       load(dataUrl);
       el('reloadBtn').addEventListener('click', ()=>load(el('sourcePath').textContent));
+  const sb = el('syncBtn'); if (sb){ sb.addEventListener('click', runSync); }
       el('loadBtn').addEventListener('click', ()=>{ const u=el('customUrl').value.trim(); if(u) load(u); });
+      const fi = document.getElementById('fileInput');
+      if (fi){
+        fi.addEventListener('change', async (e)=>{
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = async () => { await renderFromText(reader.result, file.name); };
+          reader.onerror = () => { alert('Kon bestand niet lezen'); };
+          reader.readAsText(file);
+        });
+      }
+      // Drag & drop support
+      document.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+      document.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => { await renderFromText(reader.result, file.name); };
+        reader.onerror = () => { alert('Kon bestand niet lezen'); };
+        reader.readAsText(file);
+      });
       el('monthSelect').addEventListener('change', ()=>load(el('sourcePath').textContent));
       el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
       el('exportCatBtn').addEventListener('click', exportCategoriesCSV);

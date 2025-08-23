@@ -1,6 +1,10 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Load env if present
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +56,68 @@ app.get('/', (req, res) => {
 // Optional lightweight status page
 app.get('/status', (req, res) => {
   res.type('text/plain').send('financial-dashboard: ok');
+});
+
+// --- GoCardless sync API
+import cron from 'node-cron';
+import { triggerSync, getStatus } from './services/sync.js';
+import { GoCardlessBADClient } from './services/gocardless.js';
+
+// Allow POST to trigger a manual sync (optionally pass accountIds[])
+app.use(express.json());
+app.post('/api/sync/run', async (req, res) => {
+  const secretId = process.env.GC_BAD_SECRET_ID;
+  const secretKey = process.env.GC_BAD_SECRET_KEY;
+  const accountIds = req.body?.accountIds || (process.env.GC_BAD_ACCOUNT_IDS ? process.env.GC_BAD_ACCOUNT_IDS.split(',') : []);
+  if (!secretId || !secretKey) return res.status(400).json({ ok: false, error: 'Missing GC_BAD_SECRET_ID/GC_BAD_SECRET_KEY' });
+  try {
+    const status = await triggerSync({ secretId, secretKey, accountIds });
+    res.json(status);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/sync/status', (req, res) => {
+  res.json(getStatus());
+});
+
+// Schedule: run on 1st and 15th at 03:00 server time
+if (process.env.ENABLE_SYNC_CRON === '1') {
+  cron.schedule('0 3 1,15 * *', async () => {
+    const secretId = process.env.GC_BAD_SECRET_ID;
+    const secretKey = process.env.GC_BAD_SECRET_KEY;
+    const accountIds = process.env.GC_BAD_ACCOUNT_IDS ? process.env.GC_BAD_ACCOUNT_IDS.split(',') : [];
+    if (!secretId || !secretKey) return;
+    try { await triggerSync({ secretId, secretKey, accountIds }); } catch {}
+  });
+}
+
+// Helper endpoints to discover requisitions and accounts (for setup)
+app.get('/api/gc/requisitions', async (req, res) => {
+  const secretId = process.env.GC_BAD_SECRET_ID;
+  const secretKey = process.env.GC_BAD_SECRET_KEY;
+  if (!secretId || !secretKey) return res.status(400).json({ ok:false, error:'Missing GC_BAD_SECRET_ID/GC_BAD_SECRET_KEY' });
+  try {
+    const client = new GoCardlessBADClient({ secretId, secretKey });
+    const data = await client.listRequisitions();
+    res.json({ ok:true, ...data });
+  } catch (e) {
+    res.status(500).json({ ok:false, error: e?.response?.data || e.message });
+  }
+});
+
+app.get('/api/gc/requisitions/:id', async (req, res) => {
+  const secretId = process.env.GC_BAD_SECRET_ID;
+  const secretKey = process.env.GC_BAD_SECRET_KEY;
+  if (!secretId || !secretKey) return res.status(400).json({ ok:false, error:'Missing GC_BAD_SECRET_ID/GC_BAD_SECRET_KEY' });
+  try {
+    const client = new GoCardlessBADClient({ secretId, secretKey });
+    const data = await client.getRequisition(req.params.id);
+    res.json({ ok:true, ...data });
+  } catch (e) {
+    res.status(500).json({ ok:false, error: e?.response?.data || e.message });
+  }
 });
 
 // Redirect legacy report paths to unified dashboard, preserving query string
