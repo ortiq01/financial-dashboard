@@ -1,0 +1,12 @@
+{
+  "folders": [
+    { "path": "/opt/apps/financial-dashboard-non-prod" }
+  ],
+  "settings": {
+    "window.title": "financial-dashboard non-prod — ${dirty}${activeEditorShort}${separator}${rootName}",
+    "workbench.colorCustomizations": {
+      "titleBar.activeBackground": "#0d47a1",
+      "titleBar.activeForeground": "#ffffff"
+    }
+  }
+}
