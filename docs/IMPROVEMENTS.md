@@ -4,12 +4,12 @@ This document tracks actionable improvements grouped by area.
 
 ## Product/UI
 - Rules manager UI (add/edit/delete, ordering, import/export JSON).
-- Parsing UX: move to Web Worker; progress/errors banner.
-- Non-prod badge + `<meta name="robots" content="noindex">`.
+- Parsing UX: move to a Web Worker; add progress/errors banner.
+- Non-prod badge and `<meta name="robots" content="noindex">`.
 
 ## Data/Categorization
-- Extend CBS rules (vendors, refunds/chargebacks cases).
-- Strengthen date parsing (TZ/locale); optional multi-currency.
+- Extend CBS rules (more Dutch vendors; refunds/chargebacks edge cases).
+- Strengthen date parsing (timezone/locale); optional multi-currency.
 
 ## Upload & Dedupe
 - Unit tests for parsing/dedupe (ID-first and fallback keys).
@@ -17,7 +17,7 @@ This document tracks actionable improvements grouped by area.
 
 ## GoCardless BAD (optional)
 - Decide: remove/feature-flag/park (current 401 on creds).
-- If proceeding: consent/requisition flow UI, account selection.
+- If proceeding: consent/requisition flow UI; account selection.
 
 ## Ops/Environments
 - Expose non-prod via reverse proxy to :3102; protect with basic auth/IP allowlist.
