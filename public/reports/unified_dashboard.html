@@ -790,8 +790,9 @@
 
   async function load(url){
       // Skip if already loaded this exact URL (prevent double-load race)
+      // This guards against: duplicate initial loads, user clicking reload on same URL
       if (window.__LAST_LOADED_DATA_URL__ === url) {
-        return;
+        return; // Already loaded, no need to re-fetch
       }
       try{
         el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
