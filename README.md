@@ -94,3 +94,18 @@ Credentials are loaded from `.env` via `dotenv`. Do not commit secrets.
 - If an ID-like column exists (Transaction ID, End-to-End ID, Kenmerk), that is preferred, combined with account.
 - Aggressive mode removes IBAN-like and long reference tokens in the key to collapse trivial variations.
 - When duplicates are removed, the status pill shows `OK • dedupe: N`.
+
+### Data Freshness Indicator
+
+The unified dashboard displays a color-coded freshness indicator pill that shows the age of loaded data:
+
+- **Fresh (green)**: Data is less than 24 hours old
+- **Recent (blue)**: Data is 1-2 days old
+- **Aging (yellow)**: Data is 3-7 days old
+- **Stale (red)**: Data is more than 7 days old
+
+**How it works:**
+- When loading data from a same-origin URL (e.g., `/data/latest.tab`), the dashboard issues a `HEAD` request to retrieve the `Last-Modified` header from the server.
+- The "Laatst bijgewerkt" timestamp and freshness pill are updated with the actual file modification time.
+- For cross-origin URLs or when the `Last-Modified` header is not available, the freshness pill is hidden and the timestamp shows the current time.
+- For manually uploaded files (via drag-and-drop or file picker), the freshness pill is hidden as the data source has no server-side modification time.

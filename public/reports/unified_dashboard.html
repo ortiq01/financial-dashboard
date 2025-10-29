@@ -114,7 +114,7 @@
   <div class="wrap">
     <header>
       <div>
-        <h1>Unified Financial Dashboard <span id="dataStatus" class="pill">loading…</span></h1>
+        <h1>Unified Financial Dashboard <span id="dataStatus" class="pill">loading…</span> <span id="freshnessPill" class="pill" style="display:none;"></span></h1>
         <div class="muted">Periode: <span id="periodLabel">-</span> • Laatst bijgewerkt: <span id="lastUpdated">-</span></div>
       </div>
       <div class="toolbar">
@@ -576,7 +576,7 @@
 
   function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="5">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
 
-    function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
+    function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
   function renderCategories(sum){ const tbody=el('catBody'); const entries=Array.from(sum.catAgg.entries()); const tfoot=el('catTotalRow'); if(!entries.length){ el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML='<tr><td colspan="5">Geen categorie-data</td></tr>'; if(tfoot) tfoot.innerHTML=''; return; } const totalNeg=entries.reduce((a,[,v])=>a+Math.abs(v.expenses||0),0); const denom=totalNeg>0?totalNeg:1; const rows=entries.sort((a,b)=>Math.abs((b[1].expenses||0)) - Math.abs((a[1].expenses||0))).map(([cat,v])=>{ const expAbs=Math.abs(v.expenses||0); const inc=v.income||0; const net=(inc + (v.expenses||0)); const countOut=v.countOut||0; const countIn=v.countIn||0; const countDisplay = (cat==='Inkomen') ? countIn : countOut; const avg=countOut>0?expAbs/countOut:0; const pct=denom>0?(expAbs/denom)*100:0; const active = (selectedCategory && selectedCategory===cat) ? ' row-active' : ''; return `<tr class=\"row-click${active}\" data-cat=\"${cat}\"><td><span class=\"category-tag\">${cat}</span></td><td>${countDisplay}</td><td class=\"amount ${net>=0?'pos':'neg'}\">${(net>=0?'+':'')+euro.format(net)}</td><td class=\"amount\">${euro.format(avg)}</td><td>${pct.toFixed(1)}%</td></tr>`; }).join(''); el('catTitleDyn').textContent=`Uitgaven per Categorie - ${sum.selected||''}`; tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const cat=tr.getAttribute('data-cat'); setCategoryFilter(cat); }); }); const countsDisplayedTotal = entries.reduce((acc,[cat,v])=>{ const ci=v.countIn||0; const co=v.countOut||0; return acc + (cat==='Inkomen' ? ci : co); }, 0); const totals = entries.reduce((acc,[,v])=>{ acc.inc += (v.income||0); acc.exp += Math.abs(v.expenses||0); return acc; }, {inc:0, exp:0}); const netTot = totals.inc - totals.exp; if(tfoot){ tfoot.innerHTML = `<td><strong>Totaal</strong></td><td>${countsDisplayedTotal}</td><td class=\"amount ${netTot>=0?'pos':'neg'}\">${(netTot>=0?'+':'')+euro.format(netTot)}</td><td class=\"amount\">—</td><td>100%</td>`; } }
     function renderAccounts(perAccount){ const tbody=el('acctBody'); const rows=perAccount.map(a=>`<tr><td>${a.account}</td><td class="amount pos">${euro.format(a.income)}</td><td class="amount neg">${euro.format(Math.abs(a.expenses))}</td><td class="amount ${a.net>=0?'pos':'neg'}">${(a.net>=0?'+':'')+euro.format(a.net)}</td></tr>`).join(''); tbody.innerHTML=rows||'<tr><td colspan="4">Geen data</td></tr>'; }
@@ -727,6 +727,9 @@
   async function renderFromText(text, label){
       try{
         el('dataStatus').textContent='parsing…'; el('sourcePath').textContent=label;
+        // For file uploads, hide freshness pill and set current time
+        el('freshnessPill').style.display = 'none';
+        el('lastUpdated').textContent = new Date().toLocaleString('nl-NL');
   let { headers, rows } = parseTable(text);
         // Try to merge GoCardless synced JSON if present
         try{
@@ -785,6 +788,68 @@
       } catch(e){ el('dataStatus').textContent='error'; alert('Kon data niet laden: ' + e.message); }
     }
 
+  async function checkFreshness(url){
+      try{
+        // Only check freshness for same-origin URLs to avoid CORS issues
+        const urlObj = new URL(url, location.origin);
+        if (urlObj.origin !== location.origin){
+          // Cross-origin: hide freshness pill
+          el('freshnessPill').style.display = 'none';
+          return null;
+        }
+        // Issue HEAD request to get Last-Modified
+        const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+        if (!res.ok) return null;
+        const lastModified = res.headers.get('Last-Modified');
+        if (!lastModified){
+          // No Last-Modified header: hide pill
+          el('freshnessPill').style.display = 'none';
+          return null;
+        }
+        return new Date(lastModified);
+      } catch(e){
+        // Failed to check or cross-origin: hide pill
+        el('freshnessPill').style.display = 'none';
+        return null;
+      }
+    }
+
+    function updateFreshnessPill(lastModified){
+      const pill = el('freshnessPill');
+      if (!lastModified){
+        pill.style.display = 'none';
+        return;
+      }
+      const now = new Date();
+      const ageMs = now - lastModified;
+      const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+      const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+      
+      let text, bgColor, textColor;
+      if (ageDays > 7){
+        text = `stale (${ageDays}d old)`;
+        bgColor = '#fee2e2'; // light red
+        textColor = '#991b1b'; // dark red
+      } else if (ageDays > 2){
+        text = `${ageDays}d old`;
+        bgColor = '#fef3c7'; // light yellow
+        textColor = '#92400e'; // dark yellow
+      } else if (ageHours > 24){
+        text = `${ageDays}d old`;
+        bgColor = '#e5f0ff'; // light blue
+        textColor = '#1e40af'; // dark blue
+      } else {
+        text = `fresh (${ageHours}h)`;
+        bgColor = '#d1fae5'; // light green
+        textColor = '#065f46'; // dark green
+      }
+      
+      pill.textContent = text;
+      pill.style.background = bgColor;
+      pill.style.color = textColor;
+      pill.style.display = 'inline-block';
+    }
+
   async function load(url){
       try{
         el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
@@ -793,6 +858,15 @@
         if (!res.ok) throw new Error('HTTP '+res.status);
         const text = await res.text();
         await renderFromText(text, url);
+        // Check freshness of the loaded URL
+        const lastModified = await checkFreshness(url);
+        if (lastModified){
+          el('lastUpdated').textContent = lastModified.toLocaleString('nl-NL');
+          updateFreshnessPill(lastModified);
+        } else {
+          // Fallback to current time if Last-Modified not available
+          el('lastUpdated').textContent = new Date().toLocaleString('nl-NL');
+        }
         // Apply deep-link month param once if valid (after initial load only)
         if (qsMonth && !_appliedMonthParam){
           if (sum.months && sum.months.includes(qsMonth)){
