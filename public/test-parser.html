@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Parser Tests</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .test { margin: 15px 0; padding: 10px; border: 1px solid #ccc; }
+    .pass { background: #d4edda; border-color: #c3e6cb; }
+    .fail { background: #f8d7da; border-color: #f5c6cb; }
+    .test-name { font-weight: bold; margin-bottom: 5px; }
+    .test-result { margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h1>Parser Robustness Tests</h1>
+  <div id="results"></div>
+
+  <script>
+    // Copy the parser functions here
+    function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
+    function splitQuoted(line, delimiter){ const result=[]; let current=''; let inQuotes=false; let i=0; while(i<line.length){ const c=line[i]; if(c==='"'){ if(inQuotes && i+1<line.length && line[i+1]==='"'){ current+='"'; i+=2; continue; } else { inQuotes=!inQuotes; i++; continue; } } if(c===delimiter && !inQuotes){ result.push(current); current=''; i++; continue; } current+=c; i++; } result.push(current); return result; }
+    function parseTable(text){ if(text.charCodeAt(0)===0xFEFF) text=text.slice(1); const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=splitQuoted(lines[0],d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>splitQuoted(l,d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } const afIdx=headers.findIndex(h=>/^af$/i.test(h.trim())); const bijIdx=headers.findIndex(h=>/^bij$/i.test(h.trim())); const bedragIdx=headers.findIndex(h=>/^bedrag$/i.test(h.trim())); if(afIdx!==-1 && bijIdx!==-1 && bedragIdx===-1){ headers.push('Bedrag'); rows=rows.map(r=>{ const af=r[afIdx]||''; const bij=r[bijIdx]||''; let bedrag=''; if(af){ bedrag='-'+af; }else if(bij){ bedrag=bij; } return [...r, bedrag]; }); } return { headers, rows }; }
+
+    const results = [];
+
+    function test(name, fn) {
+      try {
+        fn();
+        results.push({ name, pass: true });
+      } catch (e) {
+        results.push({ name, pass: false, error: e.message });
+      }
+    }
+
+    function assert(condition, message) {
+      if (!condition) throw new Error(message);
+    }
+
+    function assertEqual(actual, expected, message) {
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        throw new Error(`${message}\nExpected: ${JSON.stringify(expected)}\nActual: ${JSON.stringify(actual)}`);
+      }
+    }
+
+    // Test 1: Quoted fields with embedded comma
+    test('Quoted fields with embedded comma', () => {
+      const csv = 'Datum (date),Omschrijving (desc),Bedrag (€)\n2025-01-01,"Test, with comma",100.00\n2025-01-02,Normal,200.00';
+      const result = parseTable(csv);
+      assertEqual(result.headers.length, 3, 'Should have 3 headers');
+      assert(result.headers[0].includes('Datum'), 'First header should include Datum');
+      assertEqual(result.rows[0][1], 'Test, with comma', 'Quoted field should preserve comma');
+      assertEqual(result.rows[1][1], 'Normal', 'Normal field should parse correctly');
+    });
+
+    // Test 2: Quoted fields with embedded semicolon
+    test('Quoted fields with embedded semicolon', () => {
+      const csv = 'Datum (date);Omschrijving (desc);Bedrag (€)\n2025-01-01;"Test; with semicolon";100.00\n2025-01-02;Normal;200.00';
+      const result = parseTable(csv);
+      assert(result.headers.length === 3, 'Should have 3 headers');
+      assert(result.headers[0].includes('Datum'), 'First header should include Datum');
+      assertEqual(result.rows[0][1], 'Test; with semicolon', 'Quoted field should preserve semicolon');
+    });
+
+    // Test 3: Quoted fields with embedded tab
+    test('Quoted fields with embedded tab', () => {
+      const csv = 'Datum (date)\tOmschrijving (desc)\tBedrag (€)\n2025-01-01\t"Test\twith tab"\t100.00\n2025-01-02\tNormal\t200.00';
+      const result = parseTable(csv);
+      assert(result.headers.length === 3, 'Should have 3 headers');
+      assert(result.headers[0].includes('Datum'), 'First header should include Datum');
+      assertEqual(result.rows[0][1], 'Test\twith tab', 'Quoted field should preserve tab');
+    });
+
+    // Test 4: UTF-8 BOM handling
+    test('UTF-8 BOM handling', () => {
+      const bom = '\uFEFF';
+      const csv = bom + 'Datum (date),Omschrijving (desc),Bedrag (€)\n2025-01-01,Test,100.00';
+      const result = parseTable(csv);
+      assert(result.headers.length === 3, 'Should have 3 headers');
+      assert(result.headers[0].includes('Datum'), 'First header should include Datum and not have BOM');
+    });
+
+    // Test 5: Rabobank Af/Bij with Af value
+    test('Rabobank Af/Bij with Af value (debit)', () => {
+      const csv = 'Datum,Omschrijving,Af,Bij\n20250101,Payment,50.00,\n20250102,Income,,100.00';
+      const result = parseTable(csv);
+      assert(result.headers.includes('Bedrag'), 'Bedrag column should be synthesized');
+      assertEqual(result.rows[0][4], '-50.00', 'Af value should be negative');
+      assertEqual(result.rows[1][4], '100.00', 'Bij value should be positive');
+    });
+
+    // Test 6: Rabobank Af/Bij with Bij value
+    test('Rabobank Af/Bij with Bij value (credit)', () => {
+      const csv = 'Datum,Omschrijving,Af,Bij\n20250101,Salary,,2500.00';
+      const result = parseTable(csv);
+      assert(result.headers.includes('Bedrag'), 'Bedrag column should be synthesized');
+      assertEqual(result.rows[0][4], '2500.00', 'Bij value should be positive');
+    });
+
+    // Test 7: Existing Bedrag column should not synthesize
+    test('Existing Bedrag column should not synthesize', () => {
+      const csv = 'Datum (date),Omschrijving (desc),Bedrag (€)\n20250101,Payment,-50.00';
+      const result = parseTable(csv);
+      assertEqual(result.headers.length, 3, 'Should not add duplicate Bedrag column');
+      assertEqual(result.rows[0][2], '-50.00', 'Existing Bedrag should be preserved');
+    });
+
+    // Test 8: Escaped quotes in quoted fields
+    test('Escaped quotes in quoted fields', () => {
+      const csv = 'Datum (date),Omschrijving (desc),Bedrag (€)\n2025-01-01,"Test ""quoted"" value",100.00';
+      const result = parseTable(csv);
+      assertEqual(result.rows[0][1], 'Test "quoted" value', 'Escaped quotes should be handled correctly');
+    });
+
+    // Display results
+    const container = document.getElementById('results');
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'test ' + (r.pass ? 'pass' : 'fail');
+      div.innerHTML = `
+        <div class="test-name">${r.pass ? '✓' : '✗'} ${r.name}</div>
+        ${r.error ? `<div class="test-result">Error: ${r.error}</div>` : ''}
+      `;
+      container.appendChild(div);
+    });
+
+    const summary = document.createElement('div');
+    const passed = results.filter(r => r.pass).length;
+    const total = results.length;
+    summary.innerHTML = `<h2>Results: ${passed}/${total} tests passed</h2>`;
+    container.insertBefore(summary, container.firstChild);
+  </script>
+</body>
+</html>
