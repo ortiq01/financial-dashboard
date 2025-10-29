@@ -111,15 +111,15 @@ The audit tool cannot automatically verify reverse proxy configuration. Manually
 
 **Production:**
 - External URL: `https://tracker.hernandezortiz.pro/`
-- Should proxy to: `192.168.1.25:3002` (CT 125)
+- Should proxy to internal production server on port 3002 (see README.md for IP)
 - SSL: Enabled via Cloudflare
 
 **Non-prod:**
-- Should be accessible internally at: `http://192.168.1.26:3102` (CT 126)
+- Should be accessible internally on port 3102 (see README.md for IP)
 - May be protected with basic auth or IP allowlist
 - Should NOT be publicly accessible
 
-**Check in Nginx Proxy Manager (https://192.168.1.10:81):**
+**Check in Nginx Proxy Manager (web UI - see README.md for access details):**
 1. Verify proxy host configuration
 2. Confirm SSL certificate is active
 3. Check access list if applicable

@@ -154,9 +154,9 @@ curl -I http://127.0.0.1:3002/
 ```
 
 ### Reverse Proxy (Nginx Proxy Manager)
-1. Open https://192.168.1.10:81
+1. Open Nginx Proxy Manager web UI (see README.md for IP address)
 2. Check proxy hosts
-3. Verify production points to 192.168.1.25:3002
+3. Verify production proxy points to correct internal IP and port
 4. Verify SSL certificate is active
 
 ## Need Help?
