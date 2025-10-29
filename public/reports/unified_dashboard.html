@@ -279,6 +279,9 @@
   const disableSavings = (qs.get('savings') !== 'on');
   let selectedCategory = qsCategory || null; // active category filter (CBS main)
     let currentEditKey = null; // currently edited transaction key
+  // Track last loaded URL to prevent double-loading
+  window.__LAST_LOADED_DATA_URL__ = null;
+  let _isInitializing = false;
 
     function detectDelimiter(text){ const first = text.split(/\r?\n/)[0]||''; if (first.includes('\t')) return '\t'; if (first.includes(';')) return ';'; return ','; }
     function parseTable(text){ const d=detectDelimiter(text); const lines = text.split(/\r?\n/).filter(Boolean); if(!lines.length) return { headers:[], rows:[] }; const headers=lines[0].split(d).map(h=>h.trim()); let rows=lines.slice(1).map(l=>l.split(d).map(v=>v.trim())); const headerLooksLikeData = headers.every(h => /^(\d{8}|[\d\s.,-]+|[A-Za-z0-9\-]{3,})$/.test(h)); if (headerLooksLikeData){ rows=[headers, ...rows]; return { headers:[], rows }; } return { headers, rows }; }
@@ -786,6 +789,10 @@
     }
 
   async function load(url){
+      // Skip if already loaded this exact URL (prevent double-load race)
+      if (window.__LAST_LOADED_DATA_URL__ === url) {
+        return;
+      }
       try{
         el('dataStatus').textContent='loading…'; el('sourcePath').textContent=url;
         const bust = (url.includes('?')?'&':'?') + '_ts=' + Date.now();
@@ -793,6 +800,8 @@
         if (!res.ok) throw new Error('HTTP '+res.status);
         const text = await res.text();
         await renderFromText(text, url);
+        // Mark as successfully loaded
+        window.__LAST_LOADED_DATA_URL__ = url;
         // Apply deep-link month param once if valid (after initial load only)
         if (qsMonth && !_appliedMonthParam){
           if (sum.months && sum.months.includes(qsMonth)){
@@ -811,6 +820,9 @@
 
     // Wire
     document.addEventListener('DOMContentLoaded', function(){
+      // Guard against re-entrancy during initialization
+      if (_isInitializing) return;
+      _isInitializing = true;
       // Pre-apply accounts filter from query param
       if (qsAccounts){
         const list = qsAccounts.split('|').map(s=>s.trim()).filter(Boolean);
