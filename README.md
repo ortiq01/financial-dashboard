@@ -38,6 +38,8 @@ This project is set up for web development. You can add new HTML, CSS, or JavaSc
 - `npm install` – Install dependencies
 - `npm start` – Start the server
 - `npm run dev` – Start in development mode
+- `npm run audit:production` – Audit production deployment for drift
+- `npm run audit:nonprod` – Audit non-prod deployment for drift
 
 ## Agent Instructions (for AI/Automation)
 
@@ -62,6 +64,30 @@ This repository is a web development environment. The agent should:
 - **Nginx Proxy Manager UI:** https://<proxy-ip>:81
 
 For troubleshooting, always consider the network topology, reverse proxy rules, and PM2 process status. See `ENVIRONMENT_OVERVIEW.md` for full details.
+
+## Deployment & Operations
+
+### Deployment Drift Audit
+
+To verify that the deployed server matches the repository configuration, use the deployment audit tool:
+
+```bash
+# On the production server (CT 125)
+cd /opt/apps/financial-dashboard
+npm run audit:production
+
+# On the non-prod server (CT 126)
+cd /opt/apps/financial-dashboard-non-prod
+npm run audit:nonprod
+```
+
+The audit tool checks:
+- PM2 process configuration and environment variables
+- Expected file existence (reports, data, portal files)
+- Health and status endpoints
+- Root redirect behavior
+
+For detailed instructions on running audits and reconciling drift, see [docs/DEPLOYMENT_AUDIT.md](docs/DEPLOYMENT_AUDIT.md).
 
 ----
 
