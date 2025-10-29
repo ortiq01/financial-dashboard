@@ -53,6 +53,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Explicit portal route so /portal serves index.html without trailing slash
+app.get('/portal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'portal', 'index.html'));
+});
+
 // Optional lightweight status page
 app.get('/status', (req, res) => {
   res.type('text/plain').send('financial-dashboard: ok');

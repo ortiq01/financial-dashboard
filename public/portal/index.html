@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Dashboard Portal</title>
+  <style>
+    :root { --bg:#f6f8fb; --card:#fff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --primary:#2563eb; }
+    *{ box-sizing:border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 16px; }
+    h1 { margin:0; font-size:1.5rem; }
+    .muted { color: var(--muted); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow: 0 8px 20px rgba(0,0,0,.06); display:flex; flex-direction:column; gap:8px; }
+    .title { font-weight:600; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--border); border-radius:999px; font-size:.85rem; color:#111827; background:#fff; }
+    .actions { margin-top:auto; display:flex; gap:8px; }
+    a.btn { display:inline-block; background:var(--primary); color:#fff; text-decoration:none; border-radius:8px; padding:8px 12px; }
+    a.btn.ghost { background:#fff; color:#111827; border:1px solid var(--border); }
+    footer { margin-top:18px; color:var(--muted); font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Financial Dashboard Portal</h1>
+        <div class="muted">Kies een rekening om te starten</div>
+      </div>
+      <div>
+        <a class="btn ghost" href="/reports/unified_dashboard.html">Naar Unified Dashboard</a>
+      </div>
+    </header>
+
+    <div id="cards" class="grid" role="list"></div>
+
+    <footer>
+      <span>Last updated: <span id="ts"></span></span>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById('ts').textContent = new Date().toLocaleString('nl-NL');
+
+    async function loadAccounts(){
+      try{
+        const res = await fetch('/config/accounts.json', { cache:'no-store' });
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const cfg = await res.json();
+        const list = Array.isArray(cfg.accounts) ? cfg.accounts : [];
+        const el = document.getElementById('cards');
+        el.innerHTML = list.map(acc => {
+          const q = new URLSearchParams();
+          q.set('accounts', acc.id);
+          if (acc.defaultData) q.set('data', acc.defaultData);
+          const href = '/reports/unified_dashboard.html?' + q.toString();
+          return `
+            <article class="card" role="listitem" aria-label="${acc.label}">
+              <div class="title">${acc.label}</div>
+              <div class="badge" title="Valuta">💶 ${acc.currency || 'EUR'}</div>
+              <div class="actions">
+                <a class="btn" href="${href}">Open dashboard</a>
+                <a class="btn ghost" href="${href}&savings=on" title="Open met spaardoelen">Open (savings)</a>
+              </div>
+            </article>`;
+        }).join('') || '<div class="muted">Geen accounts geconfigureerd.</div>';
+      } catch(e){
+        document.getElementById('cards').innerHTML = '<div class="muted">Kon accounts niet laden</div>';
+      }
+    }
+
+    loadAccounts();
+  </script>
+</body>
+</html>
