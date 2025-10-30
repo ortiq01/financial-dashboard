@@ -227,37 +227,60 @@
     const el = id => document.getElementById(id);
     const fmt = (n, dec=2) => '€ ' + n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     
-    // Parse ABN AMRO specific CSV format
+    // Parse ABN AMRO specific TAB format
+    // Format: Account\tCurrency\tDate(YYYYMMDD)\tBalanceBefore\tBalanceAfter\tTransDate\tAmount\tDescription
     function parseABNCSV(text) {
       const lines = text.trim().split('\n');
-      if (lines.length < 2) return [];
+      if (lines.length < 1) return [];
       
       const txs = [];
-      const headers = lines[0].toLowerCase().split('\t');
       
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split('\t');
-        if (cols.length < 3) continue;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
         
-        // Parse date (ABN format: YYYYMMDD)
-        const dateStr = cols[headers.indexOf('datum')] || cols[0];
+        const cols = line.split('\t');
+        if (cols.length < 8) continue;
+        
+        // Parse date (ABN format: YYYYMMDD in column 3 or 6)
+        const dateStr = cols[2] || cols[5];
+        if (!dateStr || dateStr.length !== 8) continue;
+        
         const year = dateStr.substring(0, 4);
         const month = dateStr.substring(4, 6);
         const day = dateStr.substring(6, 8);
         const date = `${year}-${month}-${day}`;
         
-        // Parse amount
-        const amountStr = (cols[headers.indexOf('bedrag')] || cols[6] || '0').replace(',', '.');
+        // Parse amount (column 7, uses comma as decimal separator)
+        const amountStr = (cols[6] || '0').trim().replace(',', '.');
         const amount = parseFloat(amountStr);
+        if (isNaN(amount)) continue;
         
-        // Get description
-        const desc = cols[headers.indexOf('naam tegenpartij')] || cols[1] || 'Onbekend';
+        // Get description (column 8)
+        const desc = (cols[7] || 'Onbekend').trim();
+        
+        // Auto-categorize based on description
+        let category = 'Overig';
+        const descLower = desc.toLowerCase();
+        if (descLower.includes('albert heijn') || descLower.includes('jumbo') || descLower.includes('lidl') || descLower.includes('aldi')) {
+          category = 'Boodschappen';
+        } else if (descLower.includes('shell') || descLower.includes('esso') || descLower.includes('bp') || descLower.includes('parkeren')) {
+          category = 'Transport';
+        } else if (descLower.includes('ziggo') || descLower.includes('vattenfall') || descLower.includes('eneco') || descLower.includes('nuon')) {
+          category = 'Utilities';
+        } else if (descLower.includes('restaurant') || descLower.includes('cafe') || descLower.includes('bioscoop') || descLower.includes('netflix')) {
+          category = 'Vrije tijd';
+        } else if (descLower.includes('verzekering') || descLower.includes('insurance')) {
+          category = 'Verzekeringen';
+        } else if (descLower.includes('salaris') || descLower.includes('loon')) {
+          category = 'Salaris';
+        }
         
         txs.push({
           date,
-          description: desc.trim(),
+          description: desc.substring(0, 100), // Limit length
           amount,
-          category: 'Overig',
+          category,
           accountId: ACCOUNT_ID
         });
       }
