@@ -42,8 +42,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from public/
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from public/ but disable automatic index.html at '/'
+// so our custom root route can serve the Portal.
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // --- Data listing and upload endpoints ---
 // Global default whitelist
