@@ -6,15 +6,17 @@
       "currency": "EUR",
       "defaultData": "/data/latest.tab",
       "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
-      "format": "abn_csv"
+      "format": "abn_csv",
+      "dashboardPath": "/reports/abnamro_dashboard.html"
     },
     {
       "id": "RABOBANK_PERSONAL",
       "label": "Rabobank – Personal",
       "currency": "EUR",
-      "defaultData": "/data/latest.tab",
+      "defaultData": "/data/accounts/RABOBANK_PERSONAL/uploads/imported/2025-10-30/CSV_A_NL05RABO0373135297_EUR_20250101_20251029.csv",
       "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
-      "format": "rabo_csv"
+      "format": "rabo_csv",
+      "dashboardPath": "/reports/rabobank_dashboard.html"
     },
     {
       "id": "ING_BUSINESS",
@@ -22,7 +24,8 @@
       "currency": "EUR",
       "defaultData": "/data/latest.tab",
       "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
-      "format": "ing_csv"
+      "format": "ing_csv",
+      "dashboardPath": "/reports/ing_dashboard.html"
     }
   ]
 }

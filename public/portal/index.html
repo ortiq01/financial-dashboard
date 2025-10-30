@@ -86,7 +86,9 @@
           const q = new URLSearchParams();
           q.set('accounts', acc.id);
           if (acc.defaultData) q.set('data', acc.defaultData);
-          const href = '/reports/unified_dashboard.html?' + q.toString();
+          // Use bank-specific dashboard if available, otherwise unified
+          const dashboardUrl = acc.dashboardPath || '/reports/unified_dashboard.html';
+          const href = dashboardUrl + (dashboardUrl.includes('?') ? '&' : '?') + q.toString();
           const accept = (Array.isArray(acc.allowedExt) && acc.allowedExt.length)
             ? acc.allowedExt.join(',')
             : '.csv,.tsv,.tab,.txt,.json';
@@ -100,9 +102,9 @@
                 </select>
               </label>
               <div class="actions">
-                <a class="btn" href="${href}">Open dashboard</a>
+                <a class="btn" href="${dashboardUrl}">Open dashboard</a>
                 <a class="btn ghost" href="${href}&savings=on" title="Open met spaardoelen">Open (savings)</a>
-                <button class="btn ghost open-selected" data-acc="${acc.id}" type="button">Open met gekozen bestand</button>
+                <button class="btn ghost open-selected" data-acc="${acc.id}" data-dashboard="${dashboardUrl}" type="button">Open met gekozen bestand</button>
                 <label class="btn ghost" style="cursor:pointer;">
                   <input type="file" data-upload-for="${acc.id}" accept="${accept}" style="display:none;" />
                   Upload voor ${acc.id}
@@ -141,11 +143,12 @@
         document.querySelectorAll('.open-selected').forEach(btn => {
           btn.addEventListener('click', () => {
             const accId = btn.getAttribute('data-acc');
+            const dashboardUrl = btn.getAttribute('data-dashboard') || '/reports/unified_dashboard.html';
             const sel = document.querySelector(`select.dataset-select[data-acc="${accId}"]`);
             const val = sel && sel.value;
             if(!val){ alert('Kies eerst een dataset.'); return; }
             const q = new URLSearchParams({ accounts: accId, data: val });
-            window.location.href = '/reports/unified_dashboard.html?' + q.toString();
+            window.location.href = dashboardUrl + '?' + q.toString();
           });
         });
 

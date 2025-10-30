@@ -1,0 +1,12 @@
+{
+  "folders": [
+    { "path": "/opt/apps/financial-dashboard-prod" }
+  ],
+  "settings": {
+    "window.title": "financial-dashboard production — ${dirty}${activeEditorShort}${separator}${rootName}",
+    "workbench.colorCustomizations": {
+      "titleBar.activeBackground": "#1b5e20",
+      "titleBar.activeForeground": "#ffffff"
+    }
+  }
+}

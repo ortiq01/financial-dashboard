@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ABN AMRO Family Dashboard</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #fff;
+      --muted: #6b7280;
+      --text: #111827;
+      --primary: #007e5e;  /* ABN AMRO green */
+      --green: #16a34a;
+      --red: #dc2626;
+      --brand-light: #e6f4f1;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+    h1 { margin:0; font-size: 1.5rem; color:var(--primary); }
+    .pill { background:var(--brand-light); color:var(--primary); padding:4px 8px; border-radius:999px; font-size:.8rem; font-weight:600; }
+    .row { display:flex; flex-wrap:wrap; gap:16px; }
+    .card { background:var(--card); border-radius:12px; box-shadow: 0 8px 20px rgba(0,0,0,.06); padding:16px; border-top:3px solid var(--primary); }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .kbd { background:#eef2f7; border:1px solid #e5e7eb; padding:6px 8px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .btn { background:var(--primary); color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+    .btn.ghost { background:#fff; color:#111827; border:1px solid #e5e7eb; }
+    .btn.chip { border-radius:999px; padding:6px 10px; }
+    .muted { color:var(--muted); }
+    .grid-3 { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; }
+    .kpi { display:flex; flex-direction:column; gap:6px; }
+    .kpi .value { font-size:1.6rem; font-weight:700; }
+    .value.pos { color:var(--green); }
+    .value.neg { color:var(--red); }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px 8px; border-bottom:1px solid #eee; text-align:left; }
+    th { background:#f9fafb; font-weight:600; }
+    tr:hover { background:#f8fafc; }
+    .amount { font-weight:600; text-align:right; }
+    .amount.pos { color:var(--green); }
+    .amount.neg { color:var(--red); }
+    .section-title { font-size:1.1rem; margin:0 0 8px; }
+    .category-tag { display:inline-block; padding:4px 10px; border-radius:999px; font-size:.8rem; color:#fff; background:#64748b; }
+    .insight { border-left:4px solid var(--primary); padding-left:12px; margin:10px 0; }
+    .row-click { cursor:pointer; }
+    .row-active { background:#eef2ff; }
+    .filter-pill { display:inline-flex; align-items:center; gap:6px; background:var(--brand-light); color:var(--primary); padding:6px 10px; border-radius:999px; font-size:.85rem; }
+    .filter-pill .clear { cursor:pointer; color:#1f2937; margin-left:6px; font-weight:700; }
+    .menu { position: relative; display:inline-block; }
+    .menu-dropdown { position:absolute; right:0; top:40px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; min-width:200px; box-shadow:0 8px 20px rgba(0,0,0,.15); z-index:2000; }
+    .menu-dropdown a { display:block; padding:8px 12px; color:#111827; text-decoration:none; }
+    .menu-dropdown a:hover { background:#f3f4f6; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal { background:#fff; width:min(560px, 92vw); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.2); padding:16px; }
+    .modal h3 { margin:0 0 12px; }
+    .modal .row { display:flex; gap:12px; }
+    .modal label { display:block; font-size:.9rem; color:#374151; margin-bottom:6px; }
+    .modal input[type="text"], .modal select { width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb; }
+    .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+    .show { display:flex !important; }
+    @media (max-width: 720px){
+      .row { flex-direction:column; }
+      body { font-size: 15px; }
+      .wrap { padding: 16px; }
+      header { gap: 10px; }
+      .toolbar { gap: 6px; }
+      .card { padding: 12px; }
+      table { font-size: 14px; }
+      th, td { padding: 8px 6px; }
+      #customUrl { width: 100%; max-width: 100%; }
+    }
+    table thead th { position: sticky; top: 0; z-index: 1; }
+    @media (max-width: 380px){
+      body { font-size: 14px; }
+      table { font-size: 13px; }
+      .row .card[style*="min-width:380px"], .row .card[style*="min-width:280px"] { min-width: auto !important; }
+      #catTable th:nth-child(4), #catTable td:nth-child(4),
+      #catTable th:nth-child(5), #catTable td:nth-child(5){ display:none; }
+      #monthTable th:nth-child(2), #monthTable td:nth-child(2),
+      #monthTable th:nth-child(5), #monthTable td:nth-child(5){ display:none; }
+      #txTable th:nth-child(n+4), #txTable td:nth-child(n+4){ display:none; }
+    }
+    .back-portal { display:inline-flex; align-items:center; gap:6px; text-decoration:none; color:var(--primary); font-size:.9rem; }
+    .back-portal:hover { text-decoration:underline; }
+  </style>
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="data:," />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <a href="/portal" class="back-portal">← Terug naar Portal</a>
+        <h1>🏦 ABN AMRO Family Dashboard</h1>
+        <div class="muted">Financieel overzicht voor ABN AMRO Family rekening</div>
+      </div>
+      <div>
+        <span class="pill" id="accountBadge">ABNAMRO_FAMILY</span>
+      </div>
+    </header>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="toolbar">
+        <button class="btn" id="reloadBtn">🔄 Herlaad</button>
+        <input type="file" id="fileInput" accept=".csv,.tsv,.tab,.txt" style="display:none;" />
+        <button class="btn ghost" onclick="document.getElementById('fileInput').click()">📁 Kies bestand</button>
+        <select id="monthSelect" class="btn ghost">
+          <option value="all">Alle maanden</option>
+        </select>
+        <div style="flex:1;"></div>
+        <span id="dataStatus" class="muted">laden...</span>
+      </div>
+      <div style="margin-top:8px; font-size:.85rem; color:var(--muted);">
+        Bron: <span class="kbd" id="sourcePath">-</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="grid-3">
+        <div class="kpi">
+          <div class="muted">💰 Totaal Inkomsten</div>
+          <div class="value pos" id="totalIncome">€ 0</div>
+        </div>
+        <div class="kpi">
+          <div class="muted">💸 Totaal Uitgaven</div>
+          <div class="value neg" id="totalExpenses">€ 0</div>
+        </div>
+        <div class="kpi">
+          <div class="muted">📊 Netto</div>
+          <div class="value" id="netAmount">€ 0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:1; min-width:380px;">
+        <h2 class="section-title">📈 Per Categorie</h2>
+        <div id="categoryFilter" style="margin-bottom:8px;"></div>
+        <table id="catTable">
+          <thead>
+            <tr>
+              <th>Categorie</th>
+              <th>Totaal</th>
+              <th>Aantal</th>
+              <th>Gemiddeld</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card" style="flex:1; min-width:280px;">
+        <h2 class="section-title">📅 Per Maand</h2>
+        <table id="monthTable">
+          <thead>
+            <tr>
+              <th>Maand</th>
+              <th>Inkomsten</th>
+              <th>Uitgaven</th>
+              <th>Netto</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <h2 class="section-title">📋 Transacties</h2>
+        <div style="display:flex; gap:8px;">
+          <button class="btn chip ghost" id="exportTxBtn">⬇ CSV</button>
+        </div>
+      </div>
+      <table id="txTable">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Omschrijving</th>
+            <th>Bedrag</th>
+            <th>Categorie</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="modal-overlay" id="editModal">
+      <div class="modal">
+        <h3>Transactie aanpassen</h3>
+        <div style="margin-bottom:10px;">
+          <label>Categorie</label>
+          <select id="editCategory">
+            <option>Boodschappen</option>
+            <option>Transport</option>
+            <option>Utilities</option>
+            <option>Vrije tijd</option>
+            <option>Overig</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="editCancel">Annuleren</button>
+          <button class="btn" id="editSave">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Constants for ABN AMRO
+    const ACCOUNT_ID = 'ABNAMRO_FAMILY';
+    const DEFAULT_DATA_PATH = '/data/latest.tab';
+    
+    // Data store
+    let rawTransactions = [];
+    let transactions = [];
+    let selectedCategory = null;
+    let _appliedMonthParam = false;
+
+    // Utility functions
+    const el = id => document.getElementById(id);
+    const fmt = (n, dec=2) => '€ ' + n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    // Parse ABN AMRO specific CSV format
+    function parseABNCSV(text) {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) return [];
+      
+      const txs = [];
+      const headers = lines[0].toLowerCase().split('\t');
+      
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split('\t');
+        if (cols.length < 3) continue;
+        
+        // Parse date (ABN format: YYYYMMDD)
+        const dateStr = cols[headers.indexOf('datum')] || cols[0];
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        const date = `${year}-${month}-${day}`;
+        
+        // Parse amount
+        const amountStr = (cols[headers.indexOf('bedrag')] || cols[6] || '0').replace(',', '.');
+        const amount = parseFloat(amountStr);
+        
+        // Get description
+        const desc = cols[headers.indexOf('naam tegenpartij')] || cols[1] || 'Onbekend';
+        
+        txs.push({
+          date,
+          description: desc.trim(),
+          amount,
+          category: 'Overig',
+          accountId: ACCOUNT_ID
+        });
+      }
+      
+      return txs.sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    async function loadData(url = DEFAULT_DATA_PATH) {
+      try {
+        el('dataStatus').textContent = 'laden...';
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
+        rawTransactions = parseABNCSV(text);
+        transactions = [...rawTransactions];
+        el('sourcePath').textContent = url;
+        el('dataStatus').textContent = `${transactions.length} transacties`;
+        populateMonthFilter();
+        render();
+      } catch (e) {
+        el('dataStatus').textContent = 'error';
+        alert('Kon data niet laden: ' + e.message);
+      }
+    }
+
+    function populateMonthFilter() {
+      const months = new Set();
+      transactions.forEach(t => {
+        const ym = t.date.substring(0, 7);
+        months.add(ym);
+      });
+      const sorted = Array.from(months).sort().reverse();
+      const sel = el('monthSelect');
+      sel.innerHTML = '<option value="all">Alle maanden</option>';
+      sorted.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        sel.appendChild(opt);
+      });
+    }
+
+    function render() {
+      const monthFilter = el('monthSelect').value;
+      let filtered = transactions;
+      if (monthFilter !== 'all') {
+        filtered = filtered.filter(t => t.date.startsWith(monthFilter));
+      }
+      if (selectedCategory) {
+        filtered = filtered.filter(t => t.category === selectedCategory);
+      }
+
+      // KPIs
+      const income = filtered.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const expenses = Math.abs(filtered.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0));
+      const net = income - expenses;
+      
+      el('totalIncome').textContent = fmt(income);
+      el('totalExpenses').textContent = fmt(expenses);
+      el('netAmount').textContent = fmt(net);
+      el('netAmount').className = 'value ' + (net >= 0 ? 'pos' : 'neg');
+
+      // Categories
+      renderCategories(filtered, expenses);
+      
+      // Monthly
+      renderMonthly(filtered);
+      
+      // Transactions
+      renderTransactions(filtered);
+    }
+
+    function renderCategories(filtered, totalExpenses) {
+      const cats = {};
+      filtered.filter(t => t.amount < 0).forEach(t => {
+        if (!cats[t.category]) cats[t.category] = { total: 0, count: 0 };
+        cats[t.category].total += Math.abs(t.amount);
+        cats[t.category].count++;
+      });
+
+      const tbody = el('catTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      Object.entries(cats)
+        .sort((a, b) => b[1].total - a[1].total)
+        .forEach(([cat, data]) => {
+          const tr = document.createElement('tr');
+          tr.style.cursor = 'pointer';
+          tr.onclick = () => { selectedCategory = selectedCategory === cat ? null : cat; render(); };
+          if (selectedCategory === cat) tr.classList.add('row-active');
+          
+          const pct = totalExpenses > 0 ? (data.total / totalExpenses * 100).toFixed(1) : '0';
+          tr.innerHTML = `
+            <td>${cat}</td>
+            <td class="amount neg">${fmt(data.total)}</td>
+            <td>${data.count}</td>
+            <td>${fmt(data.total / data.count)}</td>
+            <td>${pct}%</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      
+      // Category filter pill
+      const filterDiv = el('categoryFilter');
+      if (selectedCategory) {
+        filterDiv.innerHTML = `<div class="filter-pill">${selectedCategory} <span class="clear" onclick="selectedCategory=null; render();">✕</span></div>`;
+      } else {
+        filterDiv.innerHTML = '';
+      }
+    }
+
+    function renderMonthly(filtered) {
+      const months = {};
+      filtered.forEach(t => {
+        const ym = t.date.substring(0, 7);
+        if (!months[ym]) months[ym] = { income: 0, expenses: 0 };
+        if (t.amount > 0) months[ym].income += t.amount;
+        else months[ym].expenses += Math.abs(t.amount);
+      });
+
+      const tbody = el('monthTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      Object.entries(months)
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .forEach(([ym, data]) => {
+          const net = data.income - data.expenses;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${ym}</td>
+            <td class="amount pos">${fmt(data.income)}</td>
+            <td class="amount neg">${fmt(data.expenses)}</td>
+            <td class="amount ${net >= 0 ? 'pos' : 'neg'}">${fmt(net)}</td>
+            <td>-</td>
+          `;
+          tbody.appendChild(tr);
+        });
+    }
+
+    function renderTransactions(filtered) {
+      const tbody = el('txTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      filtered.slice(0, 100).forEach(t => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${t.date}</td>
+          <td>${t.description}</td>
+          <td class="amount ${t.amount >= 0 ? 'pos' : 'neg'}">${fmt(t.amount)}</td>
+          <td><span class="category-tag">${t.category}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function exportTransactionsCSV() {
+      const rows = [['Datum', 'Omschrijving', 'Bedrag', 'Categorie']];
+      transactions.forEach(t => {
+        rows.push([t.date, t.description, t.amount, t.category]);
+      });
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `abnamro_transactions_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      el('reloadBtn').addEventListener('click', () => loadData(el('sourcePath').textContent));
+      el('monthSelect').addEventListener('change', render);
+      el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
+      
+      const fi = el('fileInput');
+      if (fi) {
+        fi.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            rawTransactions = parseABNCSV(reader.result);
+            transactions = [...rawTransactions];
+            el('sourcePath').textContent = file.name;
+            el('dataStatus').textContent = `${transactions.length} transacties`;
+            populateMonthFilter();
+            render();
+          };
+          reader.readAsText(file);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
