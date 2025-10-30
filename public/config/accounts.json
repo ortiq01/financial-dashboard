@@ -1,7 +1,28 @@
 {
   "accounts": [
-    { "id": "ABNAMRO_FAMILY", "label": "ABN AMRO – Family", "currency": "EUR", "defaultData": "/data/latest.tab" },
-    { "id": "RABOBANK_PERSONAL", "label": "Rabobank – Personal", "currency": "EUR", "defaultData": "/data/latest.tab" },
-    { "id": "ING_BUSINESS", "label": "ING – Business", "currency": "EUR", "defaultData": "/data/latest.tab" }
+    {
+      "id": "ABNAMRO_FAMILY",
+      "label": "ABN AMRO – Family",
+      "currency": "EUR",
+      "defaultData": "/data/latest.tab",
+      "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
+      "format": "abn_csv"
+    },
+    {
+      "id": "RABOBANK_PERSONAL",
+      "label": "Rabobank – Personal",
+      "currency": "EUR",
+      "defaultData": "/data/latest.tab",
+      "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
+      "format": "rabo_csv"
+    },
+    {
+      "id": "ING_BUSINESS",
+      "label": "ING – Business",
+      "currency": "EUR",
+      "defaultData": "/data/latest.tab",
+      "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
+      "format": "ing_csv"
+    }
   ]
 }

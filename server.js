@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import multer from 'multer';
 
 // Load env if present
 dotenv.config();
@@ -12,9 +14,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3002;
 
-// Root redirect settings
-const DEFAULT_PATH = process.env.DEFAULT_PATH || '/reports/unified_dashboard.html';
-const DISABLE_ROOT_REDIRECT = process.env.DISABLE_ROOT_REDIRECT === '1';
+// Root landing/redirect settings
+// Default behavior: serve the Portal at '/'
+// You can opt back into redirects by setting DISABLE_ROOT_REDIRECT=0 and optionally DEFAULT_PATH
+const DEFAULT_PATH = process.env.DEFAULT_PATH || '/portal';
+const DISABLE_ROOT_REDIRECT = process.env.DISABLE_ROOT_REDIRECT === '0' ? false : true;
 
 // Redirect legacy report paths BEFORE static so redirect wins even if files exist
 const earlyLegacyReports = new Set([
@@ -30,12 +34,10 @@ app.use((req, res, next) => {
     const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
     return res.redirect(302, '/reports/unified_dashboard.html' + qs);
   }
-  // Handle root redirect before static so index.html isn't served when redirect is enabled
+  // Handle optional root redirect (disabled by default). When enabled, '/' will redirect to DEFAULT_PATH.
   if (req.path === '/'){
     const noRedirect = DISABLE_ROOT_REDIRECT || req.query.hasOwnProperty('noredirect');
-    if (!noRedirect){
-      return res.redirect(DEFAULT_PATH);
-    }
+    if (!noRedirect) return res.redirect(DEFAULT_PATH);
   }
   next();
 });
@@ -43,14 +45,111 @@ app.use((req, res, next) => {
 // Serve static files from public/
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Data listing and upload endpoints ---
+// Global default whitelist
+const DEFAULT_DATA_EXT = new Set(['.csv', '.tsv', '.tab', '.txt', '.json']);
+
+const ACCOUNTS_CFG_PATH = path.join(__dirname, 'public', 'config', 'accounts.json');
+function readAccountsConfig(){
+  try{ return JSON.parse(fs.readFileSync(ACCOUNTS_CFG_PATH, 'utf8')); }
+  catch{ return { accounts: [] }; }
+}
+function allowedExtForAccount(accountId){
+  if (!accountId) return new Set(DEFAULT_DATA_EXT);
+  const cfg = readAccountsConfig();
+  const acc = (cfg.accounts || []).find(a => a.id === accountId);
+  if (!acc || !Array.isArray(acc.allowedExt) || acc.allowedExt.length === 0){
+    return new Set(DEFAULT_DATA_EXT);
+  }
+  const s = new Set();
+  for (const e of acc.allowedExt){
+    const v = (e || '').toString().trim().toLowerCase();
+    if (!v) continue;
+    s.add(v.startsWith('.') ? v : ('.' + v));
+  }
+  return s.size ? s : new Set(DEFAULT_DATA_EXT);
+}
+
+// List available data files under public/data (recursively)
+app.get('/data/list', async (req, res) => {
+  try {
+    const accountId = req.query.account;
+    const base = accountId
+      ? path.join(__dirname, 'public', 'data', 'accounts', accountId)
+      : path.join(__dirname, 'public', 'data');
+    const items = [];
+    const allowed = allowedExtForAccount(accountId);
+    const walk = dir => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })){
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) { walk(full); continue; }
+        const ext = path.extname(entry.name).toLowerCase();
+        if (allowed.has(ext)){
+          const rel = full.substring(base.length).replace(/\\/g,'/');
+          items.push({
+            name: entry.name,
+            path: (accountId ? `/data/accounts/${accountId}` : '/data') + rel,
+            size: fs.statSync(full).size
+          });
+        }
+      }
+    };
+    if (fs.existsSync(base)) walk(base);
+    items.sort((a,b) => a.name.localeCompare(b.name));
+    res.json({ ok:true, files: items });
+  } catch (e) {
+    res.status(500).json({ ok:false, error: e.message });
+  }
+});
+
+// Configure upload storage to public/data/uploads/YYYY-MM-DD
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const d = new Date();
+    const accountId = req.query.account;
+    const root = accountId
+      ? path.join(__dirname, 'public', 'data', 'accounts', accountId, 'uploads')
+      : path.join(__dirname, 'public', 'data', 'uploads');
+    const folder = path.join(root, d.toISOString().slice(0,10));
+    fs.mkdirSync(folder, { recursive: true });
+    cb(null, folder);
+  },
+  filename: (req, file, cb) => {
+    const safe = file.originalname.replace(/[^A-Za-z0-9._-]+/g, '_');
+    cb(null, Date.now() + '_' + safe);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowed = allowedExtForAccount(req.query.account);
+    if (allowed.has(ext)) return cb(null, true);
+    cb(new Error('Unsupported file type'));
+  }
+});
+
+// Upload endpoint: returns URL path under /data/uploads/...
+app.post('/upload', upload.single('file'), (req, res) => {
+  try{
+    const full = req.file.path;
+    const base = path.join(__dirname, 'public');
+    const rel = full.substring(base.length).replace(/\\/g,'/');
+    res.json({ ok:true, path: rel, account: req.query.account || null });
+  } catch(e){
+    res.status(500).json({ ok:false, error: e.message });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'financial-dashboard', ts: new Date().toISOString() });
 });
 
 // Root route: serve landing when redirect disabled via query or env
 app.get('/', (req, res) => {
-  // If we reached here, either redirect is disabled or noredirect was used
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  // If we reach here, redirect is disabled (default). Serve the Portal at root.
+  res.sendFile(path.join(__dirname, 'public', 'portal', 'index.html'));
 });
 
 // Explicit portal route so /portal serves index.html without trailing slash

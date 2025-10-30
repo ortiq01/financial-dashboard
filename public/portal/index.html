@@ -36,6 +36,20 @@
 
     <div id="cards" class="grid" role="list"></div>
 
+    <section style="margin-top:18px;">
+      <details>
+        <summary><strong>Datasets beheren</strong> – kies een bestand of upload een nieuwe</summary>
+        <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+          <label for="global-dataset">Beschikbare datasets:</label>
+          <select id="global-dataset"></select>
+          <button id="refresh-datasets" class="btn ghost" type="button">Ververs</button>
+          <input id="upload-input" type="file" accept=".csv,.tsv,.tab,.txt,.json" />
+          <button id="upload-btn" class="btn" type="button">Upload</button>
+          <span id="upload-msg" class="muted"></span>
+        </div>
+      </details>
+    </section>
+
     <footer>
       <span>Last updated: <span id="ts"></span></span>
     </footer>
@@ -43,6 +57,23 @@
 
   <script>
     document.getElementById('ts').textContent = new Date().toLocaleString('nl-NL');
+
+    let DATASETS = [];
+
+    async function fetchDatasets(){
+      try{
+  // Optional account-specific list: if a ?account=<ID> query is present, pass it through
+  const r = await fetch('/data/list', { cache:'no-store' });
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const j = await r.json();
+        DATASETS = j.files || [];
+        const sel = document.getElementById('global-dataset');
+        sel.innerHTML = '<option value="">(kies bestand)</option>' + DATASETS.map(f => `<option value="${f.path}">${f.name}</option>`).join('');
+      }catch(e){
+        DATASETS = [];
+        document.getElementById('global-dataset').innerHTML = '<option value="">(geen gegevens)</option>';
+      }
+    }
 
     async function loadAccounts(){
       try{
@@ -56,22 +87,136 @@
           q.set('accounts', acc.id);
           if (acc.defaultData) q.set('data', acc.defaultData);
           const href = '/reports/unified_dashboard.html?' + q.toString();
+          const accept = (Array.isArray(acc.allowedExt) && acc.allowedExt.length)
+            ? acc.allowedExt.join(',')
+            : '.csv,.tsv,.tab,.txt,.json';
           return `
             <article class="card" role="listitem" aria-label="${acc.label}">
               <div class="title">${acc.label}</div>
               <div class="badge" title="Valuta">💶 ${acc.currency || 'EUR'}</div>
+              <label class="muted" style="font-size:.85rem;">Dataset
+                <select data-acc="${acc.id}" class="dataset-select" style="margin-left:6px;">
+                  ${acc.defaultData ? `<option value="${acc.defaultData}">(standaard) ${acc.defaultData.split('/').pop()}</option>` : ''}
+                </select>
+              </label>
               <div class="actions">
                 <a class="btn" href="${href}">Open dashboard</a>
                 <a class="btn ghost" href="${href}&savings=on" title="Open met spaardoelen">Open (savings)</a>
+                <button class="btn ghost open-selected" data-acc="${acc.id}" type="button">Open met gekozen bestand</button>
+                <label class="btn ghost" style="cursor:pointer;">
+                  <input type="file" data-upload-for="${acc.id}" accept="${accept}" style="display:none;" />
+                  Upload voor ${acc.id}
+                </label>
               </div>
             </article>`;
         }).join('') || '<div class="muted">Geen accounts geconfigureerd.</div>';
+
+        // populate per-card selects with global and account-specific datasets
+        async function populateForAccount(acc){
+          const sel = document.querySelector(`select.dataset-select[data-acc="${acc.id}"]`);
+          if (!sel) return;
+          const current = sel.value;
+          // clear any previous optgroups (keep default/top option)
+          [...sel.querySelectorAll('optgroup')].forEach(g => g.remove());
+          // global
+          const globalGroup = document.createElement('optgroup');
+          globalGroup.label = 'Globaal';
+          globalGroup.innerHTML = DATASETS.map(f => `<option value="${f.path}">${f.name}</option>`).join('');
+          sel.appendChild(globalGroup);
+          // account-specific uploads
+          try{
+            const r = await fetch('/data/list?account=' + encodeURIComponent(acc.id), { cache:'no-store' });
+            if (r.ok){
+              const j = await r.json();
+              const accGroup = document.createElement('optgroup');
+              accGroup.label = acc.id + ' uploads';
+              accGroup.innerHTML = (j.files||[]).map(f => `<option value="${f.path}">${f.name}</option>`).join('');
+              sel.appendChild(accGroup);
+            }
+          }catch{}
+          if (current) sel.value = current;
+        }
+        await Promise.all(list.map(populateForAccount));
+        // wire open-selected buttons
+        document.querySelectorAll('.open-selected').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const accId = btn.getAttribute('data-acc');
+            const sel = document.querySelector(`select.dataset-select[data-acc="${accId}"]`);
+            const val = sel && sel.value;
+            if(!val){ alert('Kies eerst een dataset.'); return; }
+            const q = new URLSearchParams({ accounts: accId, data: val });
+            window.location.href = '/reports/unified_dashboard.html?' + q.toString();
+          });
+        });
+
+        // per-account upload wiring
+        document.querySelectorAll('input[type=file][data-upload-for]').forEach(inp => {
+          inp.addEventListener('change', async () => {
+            const accId = inp.getAttribute('data-upload-for');
+            const file = inp.files && inp.files[0];
+            if(!file) return;
+            const fd = new FormData();
+            fd.append('file', file);
+            try{
+              const r = await fetch('/upload?account=' + encodeURIComponent(accId), { method:'POST', body: fd });
+              const j = await r.json();
+              if(!j.ok) throw new Error(j.error || 'Upload mislukt');
+              // refresh datasets and per-card list for this account
+              await fetchDatasets();
+              const sel = document.querySelector(`select.dataset-select[data-acc="${accId}"]`);
+              if (sel){
+                // rebuild optgroups so the new upload appears under the account group
+                [...sel.querySelectorAll('optgroup')].forEach(g => g.remove());
+                const globalGroup = document.createElement('optgroup');
+                globalGroup.label = 'Globaal';
+                globalGroup.innerHTML = DATASETS.map(f => `<option value="${f.path}">${f.name}</option>`).join('');
+                sel.appendChild(globalGroup);
+                try{
+                  const r2 = await fetch('/data/list?account=' + encodeURIComponent(accId), { cache:'no-store' });
+                  if (r2.ok){
+                    const j2 = await r2.json();
+                    const accGroup = document.createElement('optgroup');
+                    accGroup.label = accId + ' uploads';
+                    accGroup.innerHTML = (j2.files||[]).map(f => `<option value="${f.path}">${f.name}</option>`).join('');
+                    sel.appendChild(accGroup);
+                    // select the newest item (last in list)
+                    if (j2.files && j2.files.length) sel.value = j2.files[j2.files.length-1].path;
+                  }
+                }catch{}
+              }
+              alert('Geüpload voor ' + accId + ': ' + j.path.split('/').pop());
+            }catch(e){ alert(e.message); }
+            inp.value = '';
+          });
+        });
       } catch(e){
         document.getElementById('cards').innerHTML = '<div class="muted">Kon accounts niet laden</div>';
       }
     }
 
-    loadAccounts();
+    // Upload handler
+    async function doUpload(){
+      const inp = document.getElementById('upload-input');
+      const msg = document.getElementById('upload-msg');
+      const f = inp.files && inp.files[0];
+      if(!f){ msg.textContent = 'Geen bestand gekozen'; return; }
+      const fd = new FormData();
+      fd.append('file', f);
+      msg.textContent = 'Uploaden...';
+      try{
+        const r = await fetch('/upload', { method: 'POST', body: fd });
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error || 'Upload mislukt');
+        msg.textContent = 'Geüpload: ' + (j.path.split('/').pop());
+        await fetchDatasets();
+      }catch(e){ msg.textContent = e.message; }
+    }
+
+    document.getElementById('refresh-datasets').addEventListener('click', fetchDatasets);
+    document.getElementById('upload-btn').addEventListener('click', doUpload);
+
+    // initial load
+    fetchDatasets().then(loadAccounts);
   </script>
 </body>
 </html>

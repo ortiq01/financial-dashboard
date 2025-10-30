@@ -1,6 +1,6 @@
 {
   "folders": [
-    { "path": "/opt/apps/financial-dashboard-prod" }
+    { "path": "/opt/apps/financial-dashboard" }
   ],
   "settings": {
     "window.title": "financial-dashboard production — ${dirty}${activeEditorShort}${separator}${rootName}",
