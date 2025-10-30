@@ -4,7 +4,7 @@
       "id": "ABNAMRO_FAMILY",
       "label": "ABN AMRO – Family",
       "currency": "EUR",
-      "defaultData": "/data/latest.tab",
+      "defaultData": "/data/TXT251030225219.TAB",
       "allowedExt": [".csv", ".tsv", ".tab", ".txt"],
       "format": "abn_csv",
       "dashboardPath": "/reports/abnamro_dashboard.html"
