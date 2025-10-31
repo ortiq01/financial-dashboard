@@ -8,7 +8,9 @@ const TRANSACTION_CATEGORIES = {
     keywords: [
       'albert heijn', 'ah to go', 'jumbo', 'lidl', 'aldi', 'plus supermarkt',
       'plus berntsen', 'dirk', 'coop', 'spar', 'ekoplaza', 'vomar',
-      'deen', 'hoogvliet', 'emte', 'dekamarkt', 'picnic'
+      'deen', 'hoogvliet', 'emte', 'dekamarkt', 'picnic', 'nettorama',
+      'bruna', 'drogist', 'bck*da drog', 'kruidvat', 'etos',
+      'melkhuisje', 'action'
     ]
   },
   'Transport': {
@@ -43,7 +45,7 @@ const TRANSACTION_CATEGORIES = {
       'bioscoop', 'cinema', 'netflix', 'spotify', 'disney', 
       'videoland', 'pathé', 'kinepolis',
       'bol.com', 'amazon', 'coolblue', 'mediamarkt', 'wehkamp',
-      'hema', 'action', 'kruidvat', 'etos', 'bloemen', 'blokker',
+      'hema', 'bloemen', 'blokker',
       'zeeman', 'primark', 'c&a', 'h&m', 'zara', 'bijenkorf'
     ]
   },
