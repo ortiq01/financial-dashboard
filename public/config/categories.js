@@ -13,7 +13,7 @@ const TRANSACTION_CATEGORIES = {
       'melkhuisje', 'action',
       'bck*slagerij richard', 'ccv*ambachtelijke slag', 'ccv*vishandel e. de gr',
       'ccv*vishandel evert de', 'fish nederland', 'bck*fruithandel jvd',
-      'vof. van dalen mar', 'bakkerij schuld'
+      'vof. van dalen mar', 'bakkerij schuld', 'v. dongen ermelo'
     ]
   },
   'Transport': {
@@ -28,7 +28,8 @@ const TRANSACTION_CATEGORIES = {
     keywords: [
       'ziggo', 'vattenfall', 'eneco', 'nuon', 'essent', 'kpn',
       'vodafone', 't-mobile', 'tele2', 'waterbedrijf', 'waterleiding',
-      'energie', 'gas', 'elektra', 'internet', 'telefoon'
+      'energie', 'gas', 'elektra', 'internet', 'telefoon',
+      'yellowbrick', 'blink', 'tibber', 'vitens', 'tennet'
     ]
   },
   'Restaurants/Uit eten': {
@@ -40,7 +41,8 @@ const TRANSACTION_CATEGORIES = {
       'ijssalon torino', 'darras coffee', 'bagels beans',
       'goc*zwarte cross', 'gerstali', 'kok experience',
       'brasserie', 'eetcafe', 'grand cafe', 'lunchroom',
-      'ijssalon', 'bakkerij', 'banket'
+      'ijssalon', 'bakkerij', 'banket',
+      'hoi anh', 'broodje ben', 'kantine faberhal'
     ]
   },
   'Vrije tijd': {
@@ -49,7 +51,8 @@ const TRANSACTION_CATEGORIES = {
       'videoland', 'pathé', 'kinepolis',
       'bol.com', 'amazon', 'coolblue', 'mediamarkt', 'wehkamp',
       'hema', 'bloemen', 'blokker',
-      'zeeman', 'primark', 'c&a', 'h&m', 'zara', 'bijenkorf'
+      'zeeman', 'primark', 'c&a', 'h&m', 'zara', 'bijenkorf',
+      'europa-park', 'rulantica', 'stichting museumkaart', 'stichting schuilstad'
     ]
   },
   'Verzekeringen': {
@@ -90,6 +93,12 @@ const TRANSACTION_CATEGORIES = {
     keywords: [
       'spaar', 'saving', 'belegg', 'investment', 'deposito',
       'aandelen', 'obligatie', 'fonds', 'degiro', 'binck'
+    ]
+  },
+  'Sport': {
+    keywords: [
+      'zwart-wit', 'vv zeewolde', 'sportclub hoevelaken', 'b.a.s. voetbal',
+      'voetbalver', 'voetbal', 'sportclub', 'fitness', 'gym'
     ]
   },
   'Contant': {
