@@ -25,20 +25,23 @@
     
     /* Savings section */
     .savings-section { margin-bottom: 32px; }
-    .savings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+    .savings-total-wrapper { margin-bottom: 16px; }
+    .savings-subcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
     .savings-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.05); }
-    .savings-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; }
+    .savings-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; padding: 24px; }
+    .savings-card.total .savings-card-header { justify-content: center; margin-bottom: 16px; }
+    .savings-card.total .savings-amount { text-align: center; font-size: 3rem; margin: 16px 0; }
+    .savings-card.total .savings-last-updated { text-align: center; }
     .savings-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
     .savings-logo { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; background: #f3f4f6; }
-    .savings-card.total .savings-logo { background: rgba(255,255,255,0.2); }
+    .savings-card.total .savings-logo { background: rgba(255,255,255,0.2); width: 40px; height: 40px; font-size: 24px; }
     .savings-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
-    .savings-card.total .savings-title { font-size: 1.1rem; }
+    .savings-card.total .savings-title { font-size: 1.4rem; }
     .savings-amount { font-size: 1.8rem; font-weight: 700; margin: 8px 0; }
-    .savings-card.total .savings-amount { font-size: 2.2rem; }
     .savings-input { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 1.1rem; font-weight: 600; }
     .savings-last-updated { font-size: 0.75rem; opacity: 0.7; margin-top: 8px; }
     
-    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .card { min-height:auto; } .savings-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .card { min-height:auto; } .savings-subcards { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -55,9 +58,10 @@
 
     <!-- Savings Overview Section -->
     <section class="savings-section">
-      <h2 style="font-size: 1.3rem; margin-bottom: 8px;">Spaaroverzicht</h2>
-      <div class="savings-grid">
-        <!-- Total Card -->
+      <h2 style="font-size: 1.3rem; margin-bottom: 12px;">Spaaroverzicht</h2>
+      
+      <!-- Total Card (Full Width) -->
+      <div class="savings-total-wrapper">
         <div class="savings-card total">
           <div class="savings-card-header">
             <div class="savings-logo">💰</div>
@@ -66,7 +70,10 @@
           <div class="savings-amount" id="total-savings">€ 0,00</div>
           <div class="savings-last-updated">Automatisch berekend</div>
         </div>
+      </div>
 
+      <!-- Subcards (Horizontal) -->
+      <div class="savings-subcards">
         <!-- Martine Pensioen - DeGiro -->
         <div class="savings-card">
           <div class="savings-card-header">
