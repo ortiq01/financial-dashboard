@@ -574,7 +574,7 @@
   function computePerAccount(sum){ const accMap=new Map(); const cols=sum.cols; sum.filtered.forEach(r=>{ const acc=cols.account>=0?(r[cols.account]||'Onbekend'):'Onbekend'; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); if(!accMap.has(acc)) accMap.set(acc,{account:acc,income:0,expenses:0,net:0}); const a=accMap.get(acc); if(amt>=0) a.income+=amt; else a.expenses+=amt; a.net=a.income+a.expenses; }); return Array.from(accMap.values()).sort((a,b)=>a.account.localeCompare(b.account)); }
   function computeHistoryByMonth(allRows, cols, months, activeAccounts){ const by=new Map(); months.forEach(m=>by.set(m,{income:0, expenses:0, net:0})); const excludeTransfers = (localStorage.getItem('excludeTransfers') === '1'); allRows.forEach(r=>{ if(activeAccounts && cols.account>=0 && activeAccounts.size>0){ const acc=r[cols.account]; if(!activeAccounts.has(acc)) return; } if (excludeTransfers){ const cbs=categorizeCBS(r, cols); if (cbs.main==='Overboekingen & Transfers') return; } const m=cols.date>=0?monthKey(r[cols.date]):'unknown'; if(!by.has(m)) return; const amt=toNumber(cols.amount>=0?r[cols.amount]:0); const bucket=by.get(m); if(amt>=0) bucket.income+=amt; else bucket.expenses+=amt; bucket.net=bucket.income+bucket.expenses; }); return by; }
 
-  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="5">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; load(el('sourcePath').textContent); }); }); }
+  function renderMonthlyBreakdown(historyByMonth, selected){ const tbody=el('monthBody'); const months=Array.from(historyByMonth.keys()).sort(); if(!months.length){ tbody.innerHTML='<tr><td colspan="5">Geen maanddata</td></tr>'; return; } const rows=months.map((m,i)=>{ const v=historyByMonth.get(m)||{income:0,expenses:0,net:0}; const prev = i>0 ? historyByMonth.get(months[i-1]) : null; const delta = prev ? (v.net - prev.net) : 0; const arrow = prev ? (delta>=0?'▲':'▼') : '–'; const deltaClass = prev ? (delta>=0?'pos':'neg') : ''; const cls=(m===selected)?'row-active':''; return `<tr class="row-click ${cls}" data-month="${m}"><td>${m}</td><td class="amount pos">${euro.format(v.income)}</td><td class="amount neg">${euro.format(Math.abs(v.expenses))}</td><td class="amount ${v.net>=0?'pos':'neg'}">${(v.net>=0?'+':'')+euro.format(v.net)}</td><td class="amount ${deltaClass}">${arrow} ${prev?(delta>=0?'+':'')+euro.format(delta):'–'}</td></tr>`; }).join(''); tbody.innerHTML=rows; Array.from(tbody.querySelectorAll('tr.row-click')).forEach(tr=>{ tr.addEventListener('click',()=>{ const m=tr.getAttribute('data-month'); el('monthSelect').value=m; updateMonthParam(m); recomputeAndRender(); }); }); }
 
     function updateHeader(sum){ el('periodLabel').textContent=sum.selected||'-'; el('lastUpdated').textContent=new Date().toLocaleString('nl-NL'); el('dataStatus').textContent='OK'; }
     function renderKPIs(sum){ el('kpiIncome').textContent=euro.format(sum.income); el('kpiExpenses').textContent=euro.format(Math.abs(sum.expenses)); const netEl=el('kpiNet'); netEl.textContent=(sum.net>=0?'+':'')+euro.format(sum.net); netEl.className='value '+(sum.net>=0?'pos':'neg'); }
@@ -656,6 +656,7 @@
     }
 
     // Helpers: recompute and render without refetch
+    function updateMonthParam(month){ const url = new URL(window.location.href); if(month && month !== 'all'){ url.searchParams.set('month', month); } else { url.searchParams.delete('month'); } window.history.replaceState({}, '', url.toString()); }
     function recomputeAndRender(){ if(!lastData || !lastData.allRows) return; const { headers, allRows } = lastData; const sum = summarize(headers, allRows); lastData.sum = sum; const perAccount = computePerAccount(sum); const history = computeHistoryByMonth(allRows, sum.cols, sum.months, getActiveAccounts(sum.accounts||[])); updateHeader(sum); renderKPIs(sum); renderCategories(sum); renderAccounts(perAccount); renderMonthlyBreakdown(history, sum.selected); renderTransactions(headers, sum.filtered, sum.cols); const insightItems = generateInsights(sum, perAccount, history).map(i=>`<div class=\"insight\"><strong>${i.title}</strong><div class=\"muted\">${i.text}</div></div>`).join(''); el('insightList').innerHTML = insightItems || '<div class="muted">Nog geen aanbevelingen</div>'; }
 
     function setCategoryFilter(cat){ selectedCategory = cat; recomputeAndRender(); const sec=document.getElementById('transactionsSection'); if(sec) sec.scrollIntoView({ behavior:'smooth', block:'start' }); }
@@ -795,7 +796,7 @@
         await renderFromText(text, url);
         // Apply deep-link month param once if valid (after initial load only)
         if (qsMonth && !_appliedMonthParam){
-          if (sum.months && sum.months.includes(qsMonth)){
+          if (lastData.sum && lastData.sum.months && lastData.sum.months.includes(qsMonth)){
             el('monthSelect').value = qsMonth;
             _appliedMonthParam = true;
             recomputeAndRender();
@@ -842,7 +843,7 @@
         reader.onerror = () => { alert('Kon bestand niet lezen'); };
         reader.readAsText(file);
       });
-      el('monthSelect').addEventListener('change', ()=>load(el('sourcePath').textContent));
+      el('monthSelect').addEventListener('change', ()=>{ const m=el('monthSelect').value; updateMonthParam(m); recomputeAndRender(); });
       el('exportTxBtn').addEventListener('click', exportTransactionsCSV);
       el('exportCatBtn').addEventListener('click', exportCategoriesCSV);
   // init exclude transfers toggle
