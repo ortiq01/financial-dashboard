@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import multer from 'multer';
+import { getSavings, updateSavings, getSavingsHistory, getTotalSavings } from './services/savings.js';
 
 // Load env if present
 dotenv.config();
@@ -13,6 +14,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3002;
+
+// Body parser middleware
+app.use(express.json());
 
 // Root landing/redirect settings
 // Default behavior: serve the Portal at '/'
@@ -222,6 +226,51 @@ app.get('/api/gc/requisitions/:id', async (req, res) => {
     res.json({ ok:true, ...data });
   } catch (e) {
     res.status(500).json({ ok:false, error: e?.response?.data || e.message });
+  }
+});
+
+// --- Savings API endpoints ---
+// Get all savings accounts
+app.get('/api/savings', async (req, res) => {
+  try {
+    const savings = await getSavings();
+    const total = await getTotalSavings();
+    res.json({ ok: true, savings, total });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Update savings account
+app.post('/api/savings', async (req, res) => {
+  try {
+    const { accountName, accountType, institution, amount } = req.body;
+    
+    if (!accountName || !accountType || !institution || amount === undefined) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Missing required fields: accountName, accountType, institution, amount' 
+      });
+    }
+
+    const saved = await updateSavings(accountName, accountType, institution, parseFloat(amount));
+    const total = await getTotalSavings();
+    
+    res.json({ ok: true, savings: saved, total });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Get savings history for an account
+app.get('/api/savings/history/:accountName', async (req, res) => {
+  try {
+    const { accountName } = req.params;
+    const days = parseInt(req.query.days) || 30;
+    const history = await getSavingsHistory(accountName, days);
+    res.json({ ok: true, history });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 

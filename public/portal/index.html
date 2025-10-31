@@ -140,7 +140,11 @@
     let DATASETS = [];
 
     // Savings management
-    const SAVINGS_KEY = 'financial_dashboard_savings';
+    const ACCOUNT_CONFIG = {
+      'martine': { name: 'Martine Pensioen', type: 'pension', institution: 'DeGiro' },
+      'quincy': { name: 'Quincy Pensioen', type: 'pension', institution: 'Rabobank' },
+      'bv': { name: 'B.V. Belegging Sparen', type: 'investment', institution: 'ING Business' }
+    };
     
     function parseCurrency(str) {
       if (!str) return 0;
@@ -154,17 +158,37 @@
       return '€ ' + num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
     
-    function loadSavings() {
+    async function loadSavings() {
       try {
-        const stored = localStorage.getItem(SAVINGS_KEY);
-        return stored ? JSON.parse(stored) : {};
-      } catch {
-        return {};
+        const response = await fetch('/api/savings');
+        if (!response.ok) throw new Error('Failed to load savings');
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        console.error('Error loading savings:', err);
+        return { ok: false, savings: [], total: 0 };
       }
     }
     
-    function saveSavings(data) {
-      localStorage.setItem(SAVINGS_KEY, JSON.stringify(data));
+    async function saveSavings(accountKey, amount) {
+      try {
+        const config = ACCOUNT_CONFIG[accountKey];
+        const response = await fetch('/api/savings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accountName: config.name,
+            accountType: config.type,
+            institution: config.institution,
+            amount: amount
+          })
+        });
+        if (!response.ok) throw new Error('Failed to save');
+        return await response.json();
+      } catch (err) {
+        console.error('Error saving:', err);
+        return { ok: false };
+      }
     }
     
     function updateTotal() {
@@ -175,18 +199,39 @@
       document.getElementById('total-savings').textContent = formatCurrency(total);
     }
     
-    function initSavings() {
-      const data = loadSavings();
+    async function initSavings() {
+      const result = await loadSavings();
       
-      // Load saved values
-      if (data.martine !== undefined) document.getElementById('martine-pensioen').value = formatCurrency(data.martine);
-      if (data.quincy !== undefined) document.getElementById('quincy-pensioen').value = formatCurrency(data.quincy);
-      if (data.bv !== undefined) document.getElementById('bv-belegging').value = formatCurrency(data.bv);
-      
-      // Update last modified dates
-      if (data.martine_updated) document.getElementById('martine-updated').textContent = 'DeGiro • ' + new Date(data.martine_updated).toLocaleDateString('nl-NL');
-      if (data.quincy_updated) document.getElementById('quincy-updated').textContent = 'Rabobank • ' + new Date(data.quincy_updated).toLocaleDateString('nl-NL');
-      if (data.bv_updated) document.getElementById('bv-updated').textContent = 'ING Business • ' + new Date(data.bv_updated).toLocaleDateString('nl-NL');
+      if (result.ok && result.savings) {
+        // Map savings by account name
+        const savingsMap = {};
+        result.savings.forEach(s => {
+          savingsMap[s.account_name] = s;
+        });
+        
+        // Load saved values
+        const martineData = savingsMap['Martine Pensioen'];
+        const quincyData = savingsMap['Quincy Pensioen'];
+        const bvData = savingsMap['B.V. Belegging Sparen'];
+        
+        if (martineData) {
+          document.getElementById('martine-pensioen').value = formatCurrency(martineData.amount);
+          document.getElementById('martine-updated').textContent = 'DeGiro • ' + new Date(martineData.updated_at).toLocaleDateString('nl-NL');
+        }
+        if (quincyData) {
+          document.getElementById('quincy-pensioen').value = formatCurrency(quincyData.amount);
+          document.getElementById('quincy-updated').textContent = 'Rabobank • ' + new Date(quincyData.updated_at).toLocaleDateString('nl-NL');
+        }
+        if (bvData) {
+          document.getElementById('bv-belegging').value = formatCurrency(bvData.amount);
+          document.getElementById('bv-updated').textContent = 'ING Business • ' + new Date(bvData.updated_at).toLocaleDateString('nl-NL');
+        }
+        
+        // Update total from server
+        if (result.total !== undefined) {
+          document.getElementById('total-savings').textContent = formatCurrency(result.total);
+        }
+      }
       
       updateTotal();
       
@@ -198,23 +243,27 @@
           updateTotal();
         });
         
-        input.addEventListener('blur', () => {
+        input.addEventListener('blur', async () => {
           const key = input.getAttribute('data-key');
           const value = parseCurrency(input.value);
           
           // Format the input
           input.value = formatCurrency(value);
           
-          // Save to localStorage
-          const data = loadSavings();
-          data[key] = value;
-          data[key + '_updated'] = new Date().toISOString();
-          saveSavings(data);
+          // Save to database
+          const result = await saveSavings(key, value);
           
-          // Update last modified date
-          const updateEl = document.getElementById(id.replace('-pensioen', '-updated').replace('-belegging', '-updated'));
-          const bankName = key === 'martine' ? 'DeGiro' : key === 'quincy' ? 'Rabobank' : 'ING Business';
-          updateEl.textContent = bankName + ' • ' + new Date().toLocaleDateString('nl-NL');
+          if (result.ok) {
+            // Update last modified date
+            const updateEl = document.getElementById(id.replace('-pensioen', '-updated').replace('-belegging', '-updated'));
+            const bankName = key === 'martine' ? 'DeGiro' : key === 'quincy' ? 'Rabobank' : 'ING Business';
+            updateEl.textContent = bankName + ' • ' + new Date().toLocaleDateString('nl-NL');
+            
+            // Update total from server response
+            if (result.total !== undefined) {
+              document.getElementById('total-savings').textContent = formatCurrency(result.total);
+            }
+          }
           
           updateTotal();
         });

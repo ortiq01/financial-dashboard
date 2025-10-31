@@ -3,10 +3,6 @@
     { "path": "/opt/apps/financial-dashboard" }
   ],
   "settings": {
-    "window.title": "financial-dashboard production — ${dirty}${activeEditorShort}${separator}${rootName}",
-    "workbench.colorCustomizations": {
-      "titleBar.activeBackground": "#1b5e20",
-      "titleBar.activeForeground": "#ffffff"
-    }
+    "window.title": "financial-dashboard production — ${dirty}${activeEditorShort}${separator}${rootName}"
   }
 }
