@@ -10,7 +10,10 @@ const TRANSACTION_CATEGORIES = {
       'plus berntsen', 'dirk', 'coop', 'spar', 'ekoplaza', 'vomar',
       'deen', 'hoogvliet', 'emte', 'dekamarkt', 'picnic', 'nettorama',
       'bruna', 'drogist', 'bck*da drog', 'kruidvat', 'etos',
-      'melkhuisje', 'action'
+      'melkhuisje', 'action',
+      'bck*slagerij richard', 'ccv*ambachtelijke slag', 'ccv*vishandel e. de gr',
+      'ccv*vishandel evert de', 'fish nederland', 'bck*fruithandel jvd',
+      'vof. van dalen mar', 'bakkerij schuld'
     ]
   },
   'Transport': {
@@ -63,7 +66,9 @@ const TRANSACTION_CATEGORIES = {
       'huur', 'rent', 'hypotheek', 'mortgage', 'woningborg',
       'vastgoed', 'makelaardij', 'woonlasten', 'servicekosten',
       'energie', 'bouwmarkt', 'praxis', 'karwei', 'gamma', 'hornbach',
-      'ikea', 'kwantum', 'jysk', 'tuincentrum'
+      'ikea', 'kwantum', 'jysk', 'tuincentrum',
+      'bck*bouwmarkt ermelo', 'bck*praxis', 'bck*kampeerw. hendriks',
+      'goudreinet ermelo', 'expert ermelo', 'ccv*a1 verhuur', 'van der leeden hout'
     ]
   },
   'Zorg': {
