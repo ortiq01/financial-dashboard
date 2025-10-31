@@ -144,8 +144,8 @@
     
     function parseCurrency(str) {
       if (!str) return 0;
-      // Remove € symbol, spaces, and convert comma to period
-      const cleaned = str.replace(/[€\s]/g, '').replace(',', '.');
+      // Remove € symbol and spaces, then remove thousands separator (.), then convert decimal comma to period
+      const cleaned = str.replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
       const num = parseFloat(cleaned);
       return isNaN(num) ? 0 : num;
     }
