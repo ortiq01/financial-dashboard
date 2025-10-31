@@ -22,7 +22,23 @@
     label.btn.ghost { margin:0; }
     .dataset-select { padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:.85rem; max-width:100%; }
     footer { margin-top:18px; color:var(--muted); font-size:.9rem; }
-    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .card { min-height:auto; } }
+    
+    /* Savings section */
+    .savings-section { margin-bottom: 32px; }
+    .savings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+    .savings-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.05); }
+    .savings-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; }
+    .savings-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .savings-logo { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; background: #f3f4f6; }
+    .savings-card.total .savings-logo { background: rgba(255,255,255,0.2); }
+    .savings-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+    .savings-card.total .savings-title { font-size: 1.1rem; }
+    .savings-amount { font-size: 1.8rem; font-weight: 700; margin: 8px 0; }
+    .savings-card.total .savings-amount { font-size: 2.2rem; }
+    .savings-input { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 1.1rem; font-weight: 600; }
+    .savings-last-updated { font-size: 0.75rem; opacity: 0.7; margin-top: 8px; }
+    
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .card { min-height:auto; } .savings-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -37,6 +53,59 @@
       </div>
     </header>
 
+    <!-- Savings Overview Section -->
+    <section class="savings-section">
+      <h2 style="font-size: 1.3rem; margin-bottom: 8px;">Spaaroverzicht</h2>
+      <div class="savings-grid">
+        <!-- Total Card -->
+        <div class="savings-card total">
+          <div class="savings-card-header">
+            <div class="savings-logo">💰</div>
+            <div class="savings-title">Totaal Sparen</div>
+          </div>
+          <div class="savings-amount" id="total-savings">€ 0,00</div>
+          <div class="savings-last-updated">Automatisch berekend</div>
+        </div>
+
+        <!-- Martine Pensioen - DeGiro -->
+        <div class="savings-card">
+          <div class="savings-card-header">
+            <div class="savings-logo" style="background: #ff6200;">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z'/%3E%3C/svg%3E" alt="DeGiro" style="width: 20px; height: 20px;" />
+            </div>
+            <div class="savings-title">Martine Pensioen</div>
+          </div>
+          <input type="text" class="savings-input" id="martine-pensioen" data-key="martine" placeholder="€ 0,00" />
+          <div class="savings-last-updated" id="martine-updated">DeGiro</div>
+        </div>
+
+        <!-- Quincy Pensioen - Rabobank -->
+        <div class="savings-card">
+          <div class="savings-card-header">
+            <div class="savings-logo" style="background: #002d5c;">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z'/%3E%3C/svg%3E" alt="Rabobank" style="width: 20px; height: 20px;" />
+            </div>
+            <div class="savings-title">Quincy Pensioen</div>
+          </div>
+          <input type="text" class="savings-input" id="quincy-pensioen" data-key="quincy" placeholder="€ 0,00" />
+          <div class="savings-last-updated" id="quincy-updated">Rabobank</div>
+        </div>
+
+        <!-- B.V. Belegging Sparen - ING Business -->
+        <div class="savings-card">
+          <div class="savings-card-header">
+            <div class="savings-logo" style="background: #ff6200;">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z'/%3E%3C/svg%3E" alt="ING" style="width: 20px; height: 20px;" />
+            </div>
+            <div class="savings-title">B.V. Belegging Sparen</div>
+          </div>
+          <input type="text" class="savings-input" id="bv-belegging" data-key="bv" placeholder="€ 0,00" />
+          <div class="savings-last-updated" id="bv-updated">ING Business</div>
+        </div>
+      </div>
+    </section>
+
+    <h2 style="font-size: 1.3rem; margin-bottom: 16px;">Bankrekeningen</h2>
     <div id="cards" class="grid" role="list"></div>
 
     <section style="margin-top:18px;">
@@ -62,6 +131,88 @@
     document.getElementById('ts').textContent = new Date().toLocaleString('nl-NL');
 
     let DATASETS = [];
+
+    // Savings management
+    const SAVINGS_KEY = 'financial_dashboard_savings';
+    
+    function parseCurrency(str) {
+      if (!str) return 0;
+      // Remove € symbol, spaces, and convert comma to period
+      const cleaned = str.replace(/[€\s]/g, '').replace(',', '.');
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? 0 : num;
+    }
+    
+    function formatCurrency(num) {
+      return '€ ' + num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    
+    function loadSavings() {
+      try {
+        const stored = localStorage.getItem(SAVINGS_KEY);
+        return stored ? JSON.parse(stored) : {};
+      } catch {
+        return {};
+      }
+    }
+    
+    function saveSavings(data) {
+      localStorage.setItem(SAVINGS_KEY, JSON.stringify(data));
+    }
+    
+    function updateTotal() {
+      const martine = parseCurrency(document.getElementById('martine-pensioen').value);
+      const quincy = parseCurrency(document.getElementById('quincy-pensioen').value);
+      const bv = parseCurrency(document.getElementById('bv-belegging').value);
+      const total = martine + quincy + bv;
+      document.getElementById('total-savings').textContent = formatCurrency(total);
+    }
+    
+    function initSavings() {
+      const data = loadSavings();
+      
+      // Load saved values
+      if (data.martine !== undefined) document.getElementById('martine-pensioen').value = formatCurrency(data.martine);
+      if (data.quincy !== undefined) document.getElementById('quincy-pensioen').value = formatCurrency(data.quincy);
+      if (data.bv !== undefined) document.getElementById('bv-belegging').value = formatCurrency(data.bv);
+      
+      // Update last modified dates
+      if (data.martine_updated) document.getElementById('martine-updated').textContent = 'DeGiro • ' + new Date(data.martine_updated).toLocaleDateString('nl-NL');
+      if (data.quincy_updated) document.getElementById('quincy-updated').textContent = 'Rabobank • ' + new Date(data.quincy_updated).toLocaleDateString('nl-NL');
+      if (data.bv_updated) document.getElementById('bv-updated').textContent = 'ING Business • ' + new Date(data.bv_updated).toLocaleDateString('nl-NL');
+      
+      updateTotal();
+      
+      // Add event listeners for real-time updates
+      const inputs = ['martine-pensioen', 'quincy-pensioen', 'bv-belegging'];
+      inputs.forEach(id => {
+        const input = document.getElementById(id);
+        input.addEventListener('input', () => {
+          updateTotal();
+        });
+        
+        input.addEventListener('blur', () => {
+          const key = input.getAttribute('data-key');
+          const value = parseCurrency(input.value);
+          
+          // Format the input
+          input.value = formatCurrency(value);
+          
+          // Save to localStorage
+          const data = loadSavings();
+          data[key] = value;
+          data[key + '_updated'] = new Date().toISOString();
+          saveSavings(data);
+          
+          // Update last modified date
+          const updateEl = document.getElementById(id.replace('-pensioen', '-updated').replace('-belegging', '-updated'));
+          const bankName = key === 'martine' ? 'DeGiro' : key === 'quincy' ? 'Rabobank' : 'ING Business';
+          updateEl.textContent = bankName + ' • ' + new Date().toLocaleDateString('nl-NL');
+          
+          updateTotal();
+        });
+      });
+    }
 
     async function fetchDatasets(){
       try{
@@ -222,6 +373,7 @@
     document.getElementById('upload-btn').addEventListener('click', doUpload);
 
     // initial load
+    initSavings();
     fetchDatasets().then(loadAccounts);
   </script>
 </body>
