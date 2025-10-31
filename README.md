@@ -39,6 +39,70 @@ This project is set up for web development. You can add new HTML, CSS, or JavaSc
 - `npm start` – Start the server
 - `npm run dev` – Start in development mode
 
+## PM2 Deployment
+
+This repository includes PM2 ecosystem configuration files for production and non-production environments. Choose the appropriate configuration file based on your deployment target.
+
+### Configuration Files
+
+- **`ecosystem.production.config.cjs`** - For production deployment
+  - App name: `financial-dashboard-production`
+  - Working directory: `/opt/apps/financial-dashboard`
+  - Port: `3002`
+  - NODE_ENV: `production`
+
+- **`ecosystem.nonprod.config.cjs`** - For non-production/development deployment
+  - App name: `financial-dashboard-nonprod`
+  - Working directory: `/opt/apps/financial-dashboard-non-prod`
+  - Port: `3102`
+  - NODE_ENV: `development`
+
+- **`ecosystem.config.cjs`** and **`ecosystem.config.js`** - Legacy configuration files (default to production settings)
+
+### Usage
+
+**Production Deployment (CT 125):**
+```bash
+cd /opt/apps/financial-dashboard
+pm2 start ecosystem.production.config.cjs
+pm2 save
+```
+
+**Non-Production Deployment (CT 126):**
+```bash
+cd /opt/apps/financial-dashboard-non-prod
+pm2 start ecosystem.nonprod.config.cjs
+pm2 save
+```
+
+### Environment Variables
+
+All PM2 configurations set the following environment variables:
+
+- **PORT** - HTTP port for the Express server (`3002` for production, `3102` for non-prod)
+- **NODE_ENV** - Node environment (`production` or `development`)
+- **DEFAULT_PATH** - Default redirect path (`/reports/unified_dashboard.html`)
+- **DISABLE_ROOT_REDIRECT** - Set to `0` to enable root redirect, `1` to disable
+
+### Adjusting Working Directory
+
+If your deployment uses a different path structure:
+
+1. Copy the appropriate config file (e.g., `cp ecosystem.production.config.cjs ecosystem.custom.config.cjs`)
+2. Edit the `cwd` field to match your deployment path
+3. Optionally adjust `PORT` and other environment variables as needed
+4. Use your custom config: `pm2 start ecosystem.custom.config.cjs`
+
+### Verification
+
+After starting with PM2, verify the application is running:
+
+```bash
+pm2 list                                    # Check process status
+curl http://127.0.0.1:3002/health          # Test health endpoint (adjust port for non-prod)
+pm2 logs financial-dashboard-production    # View logs (use appropriate app name)
+```
+
 ## Agent Instructions (for AI/Automation)
 
 This repository is a web development environment. The agent should:
