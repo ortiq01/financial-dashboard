@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ING Business Dashboard</title>
+  <script src="/config/categories.js"></script>
   <style>
     :root {
       --bg: #f6f8fb;
@@ -227,87 +228,7 @@
     const el = id => document.getElementById(id);
     const fmt = (n, dec=2) => '€ ' + n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     
-    // Shared categorization logic - standardized across all banks
-    function categorizeTransaction(description) {
-      const desc = description.toLowerCase();
-      
-      // Boodschappen (Groceries)
-      if (desc.includes('albert heijn') || desc.includes('ah to go') || desc.includes('jumbo') || 
-          desc.includes('lidl') || desc.includes('aldi') || desc.includes('plus supermarkt') ||
-          desc.includes('dirk') || desc.includes('coop') || desc.includes('spar') ||
-          desc.includes('ekoplaza') || desc.includes('vomar')) {
-        return 'Boodschappen';
-      }
-      
-      // Transport
-      if (desc.includes('shell') || desc.includes('esso') || desc.includes('bp') || 
-          desc.includes('total') || desc.includes('texaco') || desc.includes('parkeren') ||
-          desc.includes('parking') || desc.includes('ns ') || desc.includes('ov-chipkaart') ||
-          desc.includes('uber') || desc.includes('bolt') || desc.includes('taxi')) {
-        return 'Transport';
-      }
-      
-      // Utilities (Gas/Water/Electric/Internet/Phone)
-      if (desc.includes('ziggo') || desc.includes('vattenfall') || desc.includes('eneco') || 
-          desc.includes('nuon') || desc.includes('essent') || desc.includes('kpn') ||
-          desc.includes('vodafone') || desc.includes('t-mobile') || desc.includes('tele2') ||
-          desc.includes('waterbedrijf') || desc.includes('waterleiding')) {
-        return 'Utilities';
-      }
-      
-      // Vrije tijd (Leisure/Entertainment)
-      if (desc.includes('restaurant') || desc.includes('cafe') || desc.includes('bar ') ||
-          desc.includes('bioscoop') || desc.includes('cinema') || desc.includes('netflix') ||
-          desc.includes('spotify') || desc.includes('disney') || desc.includes('videoland') ||
-          desc.includes('pathé') || desc.includes('kinepolis') || desc.includes('bol.com') ||
-          desc.includes('amazon') || desc.includes('coolblue')) {
-        return 'Vrije tijd';
-      }
-      
-      // Verzekeringen (Insurance)
-      if (desc.includes('verzekering') || desc.includes('insurance') || desc.includes('asr ') ||
-          desc.includes('aegon') || desc.includes('nationale nederlanden') || desc.includes('nn ') ||
-          desc.includes('ditzo') || desc.includes('zilveren kruis') || desc.includes('zorgverzekering') ||
-          desc.includes('inshared')) {
-        return 'Verzekeringen';
-      }
-      
-      // Wonen (Housing: rent, mortgage, maintenance)
-      if (desc.includes('huur') || desc.includes('rent') || desc.includes('hypotheek') ||
-          desc.includes('mortgage') || desc.includes('woningborg') || desc.includes('vastgoed') ||
-          desc.includes('makelaardij') || desc.includes('woonlasten')) {
-        return 'Wonen';
-      }
-      
-      // Zorg (Healthcare)
-      if (desc.includes('apotheek') || desc.includes('pharmacy') || desc.includes('huisarts') ||
-          desc.includes('tandarts') || desc.includes('ziekenhuis') || desc.includes('hospital') ||
-          desc.includes('fysiotherap') || desc.includes('medisch')) {
-        return 'Zorg';
-      }
-      
-      // Inkomen (Income: salary, benefits)
-      if (desc.includes('salaris') || desc.includes('loon') || desc.includes('salary') ||
-          desc.includes('inkomen') || desc.includes('uitkering') || desc.includes('belasting teruggave') ||
-          desc.includes('toeslagen')) {
-        return 'Inkomen';
-      }
-      
-      // Sparen (Savings/Investments)
-      if (desc.includes('spaar') || desc.includes('saving') || desc.includes('belegg') ||
-          desc.includes('investment') || desc.includes('deposito')) {
-        return 'Sparen';
-      }
-      
-      // Contant geld (Cash withdrawal)
-      if (desc.includes('geldautomaat') || desc.includes('atm') || desc.includes('pinautomaat') ||
-          desc.includes('opname') || desc.includes('withdrawal')) {
-        return 'Contant';
-      }
-      
-      // Default
-      return 'Overig';
-    }
+    // categorizeTransaction is now loaded from /config/categories.js
     
     // Parse ING specific CSV format
     function parseINGCSV(text) {
