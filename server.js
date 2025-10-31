@@ -162,6 +162,11 @@ app.get('/portal', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'portal', 'index.html'));
 });
 
+// Portal route (without .html extension)
+app.get('/portal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+});
+
 // Optional lightweight status page
 app.get('/status', (req, res) => {
   res.type('text/plain').send('financial-dashboard: ok');

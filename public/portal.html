@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Dashboard Portal</title>
+  <style>
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; 
+      background: #f6f8fb; 
+      color: #1f2937; 
+      margin: 0; 
+      padding: 24px; 
+    }
+    .wrap { 
+      max-width: 900px; 
+      margin: 0 auto; 
+    }
+    h1 { 
+      margin: 0 0 12px; 
+      font-size: 2rem;
+    }
+    .muted { 
+      color: #6b7280; 
+      margin-bottom: 24px;
+    }
+    .card { 
+      background: #fff; 
+      border-radius: 12px; 
+      padding: 20px; 
+      box-shadow: 0 8px 20px rgba(0,0,0,.08); 
+      margin: 16px 0; 
+    }
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 1.2rem;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .card-link {
+      display: block;
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .card-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+      background: #fff;
+    }
+    .card-link .title {
+      font-weight: 600;
+      margin: 0 0 6px;
+      color: #1f2937;
+    }
+    .card-link .desc {
+      font-size: 0.9rem;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+    @media (max-width: 720px) {
+      body { padding: 16px; }
+      h1 { font-size: 1.6rem; }
+      .card { padding: 16px; }
+    }
+  </style>
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="data:," />
+  <meta name="referrer" content="no-referrer" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>📊 Financial Dashboard Portal</h1>
+    <p class="muted">Welcome to your financial overview center. Choose a dashboard below to get started.</p>
+    
+    <div class="card">
+      <h3>Dashboards</h3>
+      <div class="card-grid">
+        <a class="card-link" href="/reports/unified_dashboard.html">
+          <div class="title">📈 Unified Financial Dashboard</div>
+          <div class="desc">Complete financial overview with KPIs, categories, and transaction management. Recommended for daily use.</div>
+        </a>
+        <a class="card-link" href="/reports/index.html">
+          <div class="title">📂 Reports Index</div>
+          <div class="desc">Browse all available financial reports and legacy dashboards.</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Quick Actions</h3>
+      <div class="card-grid">
+        <a class="card-link" href="/api/sync/status">
+          <div class="title">🔄 Sync Status</div>
+          <div class="desc">Check the status of GoCardless bank account data synchronization.</div>
+        </a>
+        <a class="card-link" href="/health">
+          <div class="title">💚 System Health</div>
+          <div class="desc">View the health status of the financial dashboard service.</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
